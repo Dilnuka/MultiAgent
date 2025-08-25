@@ -1,17 +1,38 @@
-research_task:
+ai_risk_analysis_task:
   description: >
-    Conduct a thorough research about {topic}
-    Make sure you find any interesting and relevant information given
-    the current year is {current_year}.
+    Perform a thorough AI implementation risk analysis for {topic}, covering technical, ethical,
+    and business risks. Consider model lifecycle, data quality, deployment, monitoring, and governance,
+    given the current year is {current_year}.
   expected_output: >
-    A list with 10 bullet points of the most relevant information about {topic}
-  agent: researcher
+    A structured analysis with key risks, likelihood, impact, and mitigation strategies. Include
+    at least 10 concrete risks categorized by technical, ethical, and business domains.
+  agent: ai_risk_assessment_analyst
 
-reporting_task:
+ai_compliance_research_task:
   description: >
-    Review the context you got and expand each topic into a full section for a report.
-    Make sure the report is detailed and contains any and all relevant information.
+    Identify applicable regulations, standards, and frameworks for {topic} AI systems, including
+    regional and sector-specific obligations. Map requirements to control areas.
   expected_output: >
-    A fully fledged report with the main topics, each with a full section of information.
-    Formatted as markdown without '```'
-  agent: reporting_analyst
+    A compliance brief summarizing obligations, scope, applicability, and verification artifacts.
+    Include references to regulations and standards.
+  agent: ai_compliance_researcher
+
+data_privacy_security_task:
+  description: >
+    Analyze data privacy and security risks for {topic}. Cover data flows, classification, access,
+    encryption, key management, logging, monitoring, incident response, and advanced threats like
+    adversarial attacks, model stealing, data poisoning, membership inference, and prompt injection.
+  expected_output: >
+    A detailed privacy and security assessment with a threat model, STRIDE-like view, controls,
+    and prioritized recommendations. Include mappings to privacy-by-design and zero-trust principles.
+  agent: data_privacy_security_specialist
+
+risk_report_task:
+  description: >
+    Synthesize the three analyses into a comprehensive professional report (minimum 3000 words)
+    with 10 sections: Executive Summary; System Overview; Methodology; Technical Risks; Ethical Risks;
+    Business Risks; Regulatory & Compliance; Data Privacy; Security & Threat Modeling; Roadmap & Next Steps.
+  expected_output: >
+    A cohesive markdown report (no code fences) with internal headings, tables where useful, citations
+    to sources and assumptions, and a prioritized mitigation roadmap.
+  agent: risk_report_generator

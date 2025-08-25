@@ -6,7 +6,11 @@ authors = [{ name = "Your Name", email = "you@example.com" }]
 requires-python = ">=3.10,<3.14"
 dependencies = [
     "crewai[tools]>=0.165.1,<1.0.0",
-    "python-dotenv>=1.0.0"
+    "python-dotenv>=1.0.0",
+    "litellm>=1.46.0",
+    "chromadb>=0.5.5",
+    "google-generativeai>=0.7.2",
+    "pypdf>=4.2.0"
 ]
 
 [project.scripts]
