@@ -1,0 +1,43 @@
+ai_risk_analysis_task:
+  description: >
+    Perform a thorough AI implementation risk analysis for {topic}, covering technical, ethical,
+    and business risks. Consider model lifecycle, data quality, deployment, monitoring, and governance,
+    given the current year is {current_year}. Focus on the user-provided risk scenario: {scenario}.
+  expected_output: >
+    A structured analysis with key risks, likelihood, impact, and mitigation strategies. Include
+    at least 10 concrete risks categorized by technical, ethical, and business domains.
+  agent: ai_risk_assessment_analyst
+
+ai_compliance_research_task:
+  description: >
+    Identify applicable regulations, standards, and frameworks for {topic} AI systems, including
+    regional and sector-specific obligations for the selected region: {region}. Consider the declared
+    data use: {data_use} and the risk scenario: {scenario}. Map requirements to control areas.
+  expected_output: >
+    A compliance brief summarizing obligations, scope, applicability, and verification artifacts.
+    Include references to regulations and standards.
+  agent: ai_compliance_researcher
+
+data_privacy_security_task:
+  description: >
+    Analyze data privacy and security risks for {topic} considering data use: {data_use} and scenario: {scenario}. Cover data flows,
+    classification, access,
+    encryption, key management, logging, monitoring, incident response, and advanced threats like
+    adversarial attacks, model stealing, data poisoning, membership inference, and prompt injection.
+  expected_output: >
+    A detailed privacy and security assessment with a threat model, STRIDE-like view, controls,
+    and prioritized recommendations. Include mappings to privacy-by-design and zero-trust principles.
+  agent: data_privacy_security_specialist
+
+risk_report_task:
+  description: >
+    Synthesize the three analyses into a concise, well-formatted professional report (approximately 1000 words)
+    with clear sections: Executive Summary; Key Findings; Risk Assessment; Recommendations; and Next Steps.
+    Use proper markdown formatting with headers, bullet points, and clear structure. Tailor the report to the selected
+    region {region}, declared data use {data_use}, and the risk scenario {scenario}. Focus on actionable insights
+    and clear, concise language suitable for executive review.
+  expected_output: >
+    A well-formatted markdown report with clear sections, bullet points, and professional structure. Include
+    a brief executive summary, key risk findings, prioritized recommendations, and clear next steps. Keep
+    the total length around 1000 words with concise, actionable content.
+  agent: risk_report_generator
