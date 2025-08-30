@@ -26,7 +26,10 @@ def run():
     """
     inputs = {
         'topic': 'AI LLMs',
-        'current_year': str(datetime.now().year)
+        'current_year': str(datetime.now().year),
+        'region': os.getenv('REGION', 'EU'),
+        'data_use': os.getenv('DATA_USE', 'Personal data, user prompts, model logs'),
+        'scenario': os.getenv('SCENARIO', 'Prompt injection leading to data exfiltration')
     }
     
     try:

@@ -10,7 +10,8 @@ dependencies = [
     "litellm>=1.46.0",
     "chromadb>=0.5.5",
     "google-generativeai>=0.7.2",
-    "pypdf>=4.2.0"
+    "pypdf>=4.2.0",
+    "streamlit>=1.36.0"
 ]
 
 [project.scripts]
@@ -19,6 +20,7 @@ run_crew = "ai_latest_development.main:run"
 train = "ai_latest_development.main:train"
 replay = "ai_latest_development.main:replay"
 test = "ai_latest_development.main:test"
+ui = "ai_latest_development.ui_app:main"
 
 [build-system]
 requires = ["hatchling"]
