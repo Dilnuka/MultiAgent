@@ -6,12 +6,12 @@ import os
 import litellm
 try:
     from .tools import RagSearchTool
-except Exception:  # Allows running as a script without package context
+except Exception:  
     from tools import RagSearchTool
 
-# If you want to run a snippet of code before or after the crew starts,
-# you can use the @before_kickoff and @after_kickoff decorators
-# https://docs.crewai.com/concepts/crews#example-crew-class-with-decorators
+
+
+#call to the Gemini model using API KEY
 
 class GeminiLLM:
     """Custom Gemini LLM wrapper for CrewAI"""
@@ -40,12 +40,7 @@ class AiLatestDevelopment():
     agents: List[BaseAgent]
     tasks: List[Task]
 
-    # Learn more about YAML configuration files here:
-    # Agents: https://docs.crewai.com/concepts/agents#yaml-configuration-recommended
-    # Tasks: https://docs.crewai.com/concepts/tasks#yaml-configuration-recommended
-    
-    # If you would like to add tools to your agents, you can learn more about it here:
-    # https://docs.crewai.com/concepts/agents#agent-tools
+    #Agent 1
     @agent
     def ai_risk_assessment_analyst(self) -> Agent:
         llm = GeminiLLM(
@@ -53,11 +48,12 @@ class AiLatestDevelopment():
             api_key=os.getenv("GEMINI_API_KEY")
         )
         return Agent(
-            config=self.agents_config['ai_risk_assessment_analyst'], # type: ignore[index]
+            config=self.agents_config['ai_risk_assessment_analyst'], 
             llm=llm,
             verbose=True
         )
 
+    #Agent 2
     @agent
     def ai_compliance_researcher(self) -> Agent:
         llm = GeminiLLM(
@@ -65,12 +61,13 @@ class AiLatestDevelopment():
             api_key=os.getenv("GEMINI_API_KEY")
         )
         return Agent(
-            config=self.agents_config['ai_compliance_researcher'], # type: ignore[index]
+            config=self.agents_config['ai_compliance_researcher'], 
             llm=llm,
             tools=[RagSearchTool()],
             verbose=True
         )
 
+    #Agent 3
     @agent
     def data_privacy_security_specialist(self) -> Agent:
         llm = GeminiLLM(
@@ -78,12 +75,13 @@ class AiLatestDevelopment():
             api_key=os.getenv("GEMINI_API_KEY")
         )
         return Agent(
-            config=self.agents_config['data_privacy_security_specialist'], # type: ignore[index]
+            config=self.agents_config['data_privacy_security_specialist'], 
             llm=llm,
             tools=[RagSearchTool()],
             verbose=True
         )
 
+    #Agent 4
     @agent
     def risk_report_generator(self) -> Agent:
         llm = GeminiLLM(
@@ -91,44 +89,41 @@ class AiLatestDevelopment():
             api_key=os.getenv("GEMINI_API_KEY")
         )
         return Agent(
-            config=self.agents_config['risk_report_generator'], # type: ignore[index]
+            config=self.agents_config['risk_report_generator'], 
             llm=llm,
             verbose=True
         )
 
-    # To learn more about structured task outputs,
-    # task dependencies, and task callbacks, check out the documentation:
-    # https://docs.crewai.com/concepts/tasks#overview-of-a-task
+    
     @task
     def ai_risk_analysis_task(self) -> Task:
         return Task(
-            config=self.tasks_config['ai_risk_analysis_task'], # type: ignore[index]
+            config=self.tasks_config['ai_risk_analysis_task'], 
         )
 
     @task
     def ai_compliance_research_task(self) -> Task:
         return Task(
-            config=self.tasks_config['ai_compliance_research_task'], # type: ignore[index]
+            config=self.tasks_config['ai_compliance_research_task'], 
         )
 
     @task
     def data_privacy_security_task(self) -> Task:
         return Task(
-            config=self.tasks_config['data_privacy_security_task'], # type: ignore[index]
+            config=self.tasks_config['data_privacy_security_task'], 
         )
 
     @task
     def risk_report_task(self) -> Task:
         return Task(
-            config=self.tasks_config['risk_report_task'], # type: ignore[index]
+            config=self.tasks_config['risk_report_task'], 
             output_file='report.md'
         )
 
     @crew
     def crew(self) -> Crew:
         """Creates the AiLatestDevelopment crew"""
-        # To learn how to add knowledge sources to your crew, check out the documentation:
-        # https://docs.crewai.com/concepts/knowledge#what-is-knowledge
+       
 
         return Crew(
             agents=self.agents,
