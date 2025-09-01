@@ -1,3 +1,4 @@
 .env
 __pycache__/
 .DS_Store
+LM_Studio_Configuration_Guide.md
