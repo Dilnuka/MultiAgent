@@ -4,6 +4,8 @@ from crewai.agents.agent_builder.base_agent import BaseAgent
 from typing import List
 import os
 import litellm
+import time
+import random
 try:
     from .tools import RagSearchTool
 except Exception:  # Allows running as a script without package context
@@ -22,16 +24,45 @@ class GeminiLLM:
         
     def call(self, prompt, **kwargs):
         """Call the Gemini API using litellm"""
-        try:
-            response = litellm.completion(
-                model=self.model,
-                messages=[{"role": "user", "content": prompt}],
-                api_key=self.api_key,
-                **kwargs
-            )
-            return response.choices[0].message.content
-        except Exception as e:
-            raise Exception(f"Error calling Gemini API: {e}")
+        max_retries = int(os.getenv("GEMINI_MAX_RETRIES", 4))
+        base_delay = float(os.getenv("GEMINI_BACKOFF_BASE", 1.0))
+        last_err = None
+        for attempt in range(1, max_retries + 1):
+            try:
+                response = litellm.completion(
+                    model=self.model,
+                    messages=[{"role": "user", "content": prompt}],
+                    api_key=self.api_key,
+                    timeout=60,
+                    max_retries=0,
+                    **kwargs
+                )
+                return response.choices[0].message.content
+            except Exception as e:
+                last_err = e
+                msg = str(e)
+                lower = msg.lower()
+                is_503 = ("503" in msg) or ("overloaded" in lower) or ("unavailable" in lower)
+                is_429 = ("429" in msg) or ("resource_exhausted" in lower) or ("quota" in lower)
+                if attempt < max_retries and (is_503 or is_429):
+                    # Respect server-suggested retry delay if present (e.g., "retry in 59s" or RetryInfo)
+                    retry_seconds = None
+                    # Simple parse: look for 'retry in <number>' or 'retryDelay: "<Ns>"'
+                    import re
+                    m = re.search(r"retry\s+in\s+(\d+)", lower)
+                    if m:
+                        retry_seconds = int(m.group(1))
+                    else:
+                        m = re.search(r"retrydelay\"?[:=]?\s*\"?(\d+)", lower)
+                        if m:
+                            retry_seconds = int(m.group(1))
+                    if retry_seconds is None:
+                        # Exponential backoff with jitter
+                        retry_seconds = base_delay * (2 ** (attempt - 1)) + random.uniform(0, 0.5)
+                    time.sleep(float(retry_seconds))
+                    continue
+                break
+        raise Exception(f"Error calling Gemini API after {max_retries} attempts: {last_err}")
 
 @CrewBase
 class AiLatestDevelopment():
@@ -48,52 +79,60 @@ class AiLatestDevelopment():
     # https://docs.crewai.com/concepts/agents#agent-tools
     @agent
     def ai_risk_assessment_analyst(self) -> Agent:
+        model_name = os.getenv("GEMINI_MODEL", "gemini/gemini-2.0-flash-lite-001")
         llm = GeminiLLM(
-            model="gemini/gemini-2.0-flash-lite-001",
+            model=model_name,
             api_key=os.getenv("GEMINI_API_KEY")
         )
+        verbose_flag = os.getenv("CREW_VERBOSE", "false").lower() in ("1", "true", "yes")
         return Agent(
             config=self.agents_config['ai_risk_assessment_analyst'], # type: ignore[index]
             llm=llm,
-            verbose=True
+            verbose=verbose_flag
         )
 
     @agent
     def ai_compliance_researcher(self) -> Agent:
+        model_name = os.getenv("GEMINI_MODEL", "gemini/gemini-2.0-flash-lite-001")
         llm = GeminiLLM(
-            model="gemini/gemini-2.0-flash-lite-001",
+            model=model_name,
             api_key=os.getenv("GEMINI_API_KEY")
         )
+        verbose_flag = os.getenv("CREW_VERBOSE", "false").lower() in ("1", "true", "yes")
         return Agent(
             config=self.agents_config['ai_compliance_researcher'], # type: ignore[index]
             llm=llm,
             tools=[RagSearchTool()],
-            verbose=True
+            verbose=verbose_flag
         )
 
     @agent
     def data_privacy_security_specialist(self) -> Agent:
+        model_name = os.getenv("GEMINI_MODEL", "gemini/gemini-2.0-flash-lite-001")
         llm = GeminiLLM(
-            model="gemini/gemini-2.0-flash-lite-001",
+            model=model_name,
             api_key=os.getenv("GEMINI_API_KEY")
         )
+        verbose_flag = os.getenv("CREW_VERBOSE", "false").lower() in ("1", "true", "yes")
         return Agent(
             config=self.agents_config['data_privacy_security_specialist'], # type: ignore[index]
             llm=llm,
             tools=[RagSearchTool()],
-            verbose=True
+            verbose=verbose_flag
         )
 
     @agent
     def risk_report_generator(self) -> Agent:
+        model_name = os.getenv("GEMINI_MODEL", "gemini/gemini-2.0-flash-lite-001")
         llm = GeminiLLM(
-            model="gemini/gemini-2.0-flash-lite-001",
+            model=model_name,
             api_key=os.getenv("GEMINI_API_KEY")
         )
+        verbose_flag = os.getenv("CREW_VERBOSE", "false").lower() in ("1", "true", "yes")
         return Agent(
             config=self.agents_config['risk_report_generator'], # type: ignore[index]
             llm=llm,
-            verbose=True
+            verbose=verbose_flag
         )
 
     # To learn more about structured task outputs,
@@ -130,9 +169,10 @@ class AiLatestDevelopment():
         # To learn how to add knowledge sources to your crew, check out the documentation:
         # https://docs.crewai.com/concepts/knowledge#what-is-knowledge
 
+        verbose_flag = os.getenv("CREW_VERBOSE", "false").lower() in ("1", "true", "yes")
         return Crew(
             agents=self.agents,
             tasks=self.tasks,
             process=Process.sequential,
-            verbose=True,
+            verbose=verbose_flag,
         )
