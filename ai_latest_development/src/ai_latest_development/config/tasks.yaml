@@ -1,0 +1,134 @@
+ai_risk_analysis_task:
+  description: >
+    Perform a thorough AI implementation risk analysis for {topic}, covering technical, ethical,
+    and business risks. Consider model lifecycle, data quality, deployment, monitoring, and governance,
+    given the current year is {current_year}. Focus on the user-provided risk scenario: {scenario}.
+  expected_output: >
+    A structured analysis with key risks, likelihood, impact, and mitigation strategies. Include
+    at least 10 concrete risks categorized by technical, ethical, and business domains.
+  agent: ai_risk_assessment_analyst
+
+ai_compliance_research_task:
+  description: >
+    Identify applicable regulations, standards, and frameworks for {topic} AI systems, including
+    regional and sector-specific obligations for the selected region: {region}. Consider the declared
+    data use: {data_use} and the risk scenario: {scenario}. Map requirements to control areas.
+  expected_output: >
+    A compliance brief summarizing obligations, scope, applicability, and verification artifacts.
+    Include references to regulations and standards.
+  agent: ai_compliance_researcher
+
+data_privacy_security_task:
+  description: >
+    Analyze data privacy and security risks for {topic} considering data use: {data_use} and scenario: {scenario}. Cover data flows,
+    classification, access,
+    encryption, key management, logging, monitoring, incident response, and advanced threats like
+    adversarial attacks, model stealing, data poisoning, membership inference, and prompt injection.
+  expected_output: >
+    A detailed privacy and security assessment with a threat model, STRIDE-like view, controls,
+    and prioritized recommendations. Include mappings to privacy-by-design and zero-trust principles.
+  agent: data_privacy_security_specialist
+
+risk_report_task:
+  description: >
+    Synthesize the three analyses into a concise, professional report (~900–1200 words) using
+    the enhanced Markdown template and style guide below. The report must clearly explain
+    the project, make risks easy to understand, and give actionable steps for decision-makers.
+
+    STYLE GUIDE (IMPROVED FOR CLARITY & UNDERSTANDING):
+    - **Explain the context first**: make sure a non-technical reader knows what the system does.
+    - Use **short paragraphs, bullets, and tables** for easy scanning.
+    - Add callouts (⚠️ = risk, ✅ = action, 🔒 = security) to highlight key points.
+    - Each section should explain not just "what" but also "why it matters".
+    - Keep tables compact but self-explanatory (80–100 characters per cell).
+    - Ensure findings flow logically: Context → Risks → Compliance → Actions.
+
+    MARKDOWN TEMPLATE (REVISED FOR BETTER UNDERSTANDING):
+
+    # 📊 Executive Summary
+    - **What this is about:** One-sentence overview of {topic} in {region}
+    - **Scope:** data use = {data_use}; scenario = {scenario}; year = {current_year}
+    - **Top 3 Risks (plain language):**
+      1. <risk one-line, why it matters>
+      2. <risk one-line, why it matters>
+      3. <risk one-line, why it matters>
+    - **Top 3 Recommended Actions:**
+      1. <clear action one-line, business benefit>
+      2. <clear action one-line, security benefit>
+      3. <clear action one-line, compliance benefit>
+
+    ---
+
+    ## 🔍 Key Findings (Context + Insights)
+    - **Finding 1:** <what we learned + why important>
+    - **Finding 2:** <what we learned + why important>
+    - **Finding 3:** <what we learned + why important>
+
+    ---
+
+    ## ⚠️ Risk Assessment
+    ### High-Priority Risks (Matrix)
+    | Risk | Likelihood | Impact | Priority | Why it matters (1–2 lines) |
+    |---|---|---|---|---|
+    | <risk name> | <L/M/H> | <L/M/H> | <P1/P2/P3> | <short reason> |
+    | <risk name> | <L/M/H> | <L/M/H> | <P1/P2/P3> | <short reason> |
+    | <risk name> | <L/M/H> | <L/M/H> | <P1/P2/P3> | <short reason> |
+
+    ### Threats and Controls (STRIDE)
+    - **Spoofing:** <threat explained in plain language>  
+      ✅ Controls: <clear, practical measures>
+    - **Tampering:** <...>  
+      ✅ Controls: <...>
+    - **Repudiation:** <...>  
+      ✅ Controls: <...>
+    - **Information Disclosure:** <...>  
+      🔒 Controls: <...>
+    - **Denial of Service:** <...>  
+      ✅ Controls: <...>
+    - **Elevation of Privilege:** <...>  
+      ✅ Controls: <...>
+
+    ---
+
+    ## 📜 Compliance Mapping ({region})
+    | Regulation / Standard | Scope | Key Obligation | What to Show as Evidence |
+    |---|---|---|---|
+    | <e.g., EU AI Act / NIST AI RMF> | <applies to X systems> | <requirement> | <artifact/check> |
+    | <...> | <...> | <...> | <...> |
+
+    ---
+
+    ## ✅ Recommendations (Prioritized Actions)
+    | Priority | Action (what + why) | Owner | Effort | ETA |
+    |---|---|---|---|---|
+    | P1 | <clear action + reason> | <team/role> | <S/M/L> | <date/sprint> |
+    | P2 | <clear action + reason> | <team/role> | <S/M/L> | <date/sprint> |
+    | P3 | <clear action + reason> | <team/role> | <S/M/L> | <date/sprint> |
+
+    ---
+
+    ## 📌 Next 2 Weeks Checklist (Practical To-Do)
+    - [ ] <specific task to start immediately>
+    - [ ] <specific task to reduce top risk>
+    - [ ] <specific compliance/documentation task>
+
+    ---
+
+    ## 📖 Assumptions and Limits
+    - <assumption about data/system>
+    - <known limitation of this analysis>
+
+    👉 This format ensures the report is **readable by executives**, **actionable for practitioners**, 
+    and **understandable for non-technical stakeholders**.
+  expected_output: >
+    A polished Markdown report that clearly explains the project context, risks, and actions in a way
+    that both executives and technical teams can understand. Must include:
+    - Executive Summary with project context + top risks/actions
+    - Clear risk matrix with explanations
+    - STRIDE threat mapping in plain language
+    - Compliance mapping with evidence examples
+    - Recommendations with reasoning
+    - 2-week practical checklist
+    - Assumptions and limits
+    Word count ~900–1200, highly readable and structured.
+  agent: risk_report_generator
