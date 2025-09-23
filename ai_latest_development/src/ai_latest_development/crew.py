@@ -4,63 +4,65 @@ from crewai.agents.agent_builder.base_agent import BaseAgent
 from typing import List
 import os
 import litellm
+import time
+import random
 try:
     from .tools import RagSearchTool
 except Exception:  
     from tools import RagSearchTool
-from dotenv import load_dotenv
-load_dotenv()
 
-# Configure LiteLLM for LM Studio
-# LM Studio runs an OpenAI-compatible API server
-model_name = os.getenv('MODEL', 'lm-studio/llama-3.2-1b-instruct')
-api_base = os.getenv('LMSTUDIO_API_BASE', os.getenv('LITELLM_BASE_URL', 'http://127.0.0.1:1234/v1'))
-api_key = os.getenv('LMSTUDIO_API_KEY', os.getenv('LM_STUDIO_API_KEY', 'lm-studio'))
+# If you want to run a snippet of code before or after the crew starts,
+# you can use the @before_kickoff and @after_kickoff decorators
+# https://docs.crewai.com/concepts/crews#example-crew-class-with-decorators
 
-# Set environment variables for LiteLLM to recognize lm-studio provider
-os.environ['LM_STUDIO_API_BASE'] = api_base
-os.environ['LM_STUDIO_API_KEY'] = api_key
-
-# Configure LiteLLM custom providers properly
-litellm.custom_llm_provider = "lm-studio"
-litellm.api_base = api_base
-litellm.api_key = api_key
-
-# Map lm-studio provider to openai for LiteLLM compatibility
-if model_name.startswith('lm-studio/'):
-    # Extract the actual model name and use openai provider
-    actual_model = model_name.replace('lm-studio/', '')
-    final_model = f"openai/{actual_model}"
-else:
-    final_model = model_name
+class GeminiLLM:
+    """Custom Gemini LLM wrapper for CrewAI"""
     
-print(f"Using model: {final_model} with API base: {api_base}")
-
-#call to the local LM Studio model using env vars from your .env
-# Using corrected model format for LiteLLM compatibility
-try:
-    ollama_llm = LLM(
-        model=final_model,
-        base_url=api_base,
-        api_key=api_key,
-    )
-    print(f"Successfully initialized LLM with model: {final_model}")
-except Exception as e:
-    print(f"Warning: Failed to initialize LLM with {final_model}: {e}")
-    # Fallback: Try with basic openai prefix
-    try:
-        basic_model = model_name.split('/')[-1]  # Get just the model name
-        fallback_model = f"openai/{basic_model}"
-        ollama_llm = LLM(
-            model=fallback_model,
-            base_url=api_base,
-            api_key=api_key,
-        )
-        print(f"Successfully initialized LLM with fallback model: {fallback_model}")
-    except Exception as e2:
-        print(f"Error: All LLM initialization attempts failed: {e2}")
-        raise Exception(f"Could not initialize LLM model. Please check your LM Studio configuration and ensure it's running on the specified port. Errors: {e}, {e2}")
-
+    def __init__(self, model="gemini/gemini-2.0-flash-lite-001", api_key=None):
+        self.model = model
+        self.api_key = api_key or os.getenv("GEMINI_API_KEY")
+        
+    def call(self, prompt, **kwargs):
+        """Call the Gemini API using litellm"""
+        max_retries = int(os.getenv("GEMINI_MAX_RETRIES", 4))
+        base_delay = float(os.getenv("GEMINI_BACKOFF_BASE", 1.0))
+        last_err = None
+        for attempt in range(1, max_retries + 1):
+            try:
+                response = litellm.completion(
+                    model=self.model,
+                    messages=[{"role": "user", "content": prompt}],
+                    api_key=self.api_key,
+                    timeout=60,
+                    max_retries=0,
+                    **kwargs
+                )
+                return response.choices[0].message.content
+            except Exception as e:
+                last_err = e
+                msg = str(e)
+                lower = msg.lower()
+                is_503 = ("503" in msg) or ("overloaded" in lower) or ("unavailable" in lower)
+                is_429 = ("429" in msg) or ("resource_exhausted" in lower) or ("quota" in lower)
+                if attempt < max_retries and (is_503 or is_429):
+                    # Respect server-suggested retry delay if present (e.g., "retry in 59s" or RetryInfo)
+                    retry_seconds = None
+                    # Simple parse: look for 'retry in <number>' or 'retryDelay: "<Ns>"'
+                    import re
+                    m = re.search(r"retry\s+in\s+(\d+)", lower)
+                    if m:
+                        retry_seconds = int(m.group(1))
+                    else:
+                        m = re.search(r"retrydelay\"?[:=]?\s*\"?(\d+)", lower)
+                        if m:
+                            retry_seconds = int(m.group(1))
+                    if retry_seconds is None:
+                        # Exponential backoff with jitter
+                        retry_seconds = base_delay * (2 ** (attempt - 1)) + random.uniform(0, 0.5)
+                    time.sleep(float(retry_seconds))
+                    continue
+                break
+        raise Exception(f"Error calling Gemini API after {max_retries} attempts: {last_err}")
 
 @CrewBase
 class AiLatestDevelopment():
@@ -85,70 +87,65 @@ class AiLatestDevelopment():
     #Agent 1
     @agent
     def ai_risk_assessment_analyst(self) -> Agent:
-        try:
-            print(f"Creating ai_risk_assessment_analyst agent...")
-            print(f"Config type: {type(self.agents_config)}")
-            if isinstance(self.agents_config, dict):
-                config_data = self.agents_config['ai_risk_assessment_analyst']
-                print(f"Agent config: {config_data}")
-            else:
-                print(f"agents_config is not a dict: {self.agents_config}")
-                
-            return Agent(
-                config=self.agents_config['ai_risk_assessment_analyst'],
-                llm=ollama_llm,
-                verbose=True,
-            )
-        except Exception as e:
-            print(f"Error creating ai_risk_assessment_analyst: {e}")
-            print(f"agents_config: {self.agents_config}")
-            raise
+        model_name = os.getenv("GEMINI_MODEL", "gemini/gemini-2.0-flash-lite-001")
+        llm = GeminiLLM(
+            model=model_name,
+            api_key=os.getenv("GEMINI_API_KEY")
+        )
+        verbose_flag = os.getenv("CREW_VERBOSE", "false").lower() in ("1", "true", "yes")
+        return Agent(
+            config=self.agents_config['ai_risk_assessment_analyst'], # type: ignore[index]
+            llm=llm,
+            verbose=verbose_flag
+        )
 
-    #Agent 2
     @agent
     def ai_compliance_researcher(self) -> Agent:
-        try:
-            print(f"Creating ai_compliance_researcher agent...")
-            return Agent(
-                config=self.agents_config['ai_compliance_researcher'],
-                llm=ollama_llm,
-                # tools=[RagSearchTool()],  # Temporarily disabled due to ChromaDB issues
-                verbose=True,
-            )
-        except Exception as e:
-            print(f"Error creating ai_compliance_researcher: {e}")
-            raise
+        model_name = os.getenv("GEMINI_MODEL", "gemini/gemini-2.0-flash-lite-001")
+        llm = GeminiLLM(
+            model=model_name,
+            api_key=os.getenv("GEMINI_API_KEY")
+        )
+        verbose_flag = os.getenv("CREW_VERBOSE", "false").lower() in ("1", "true", "yes")
+        return Agent(
+            config=self.agents_config['ai_compliance_researcher'], # type: ignore[index]
+            llm=llm,
+            tools=[RagSearchTool()],
+            verbose=verbose_flag
+        )
 
-    #Agent 3
     @agent
     def data_privacy_security_specialist(self) -> Agent:
-        try:
-            print(f"Creating data_privacy_security_specialist agent...")
-            return Agent(
-                config=self.agents_config['data_privacy_security_specialist'],
-                llm=ollama_llm,
-                # tools=[RagSearchTool()],  # Temporarily disabled due to ChromaDB issues
-                verbose=True,
-            )
-        except Exception as e:
-            print(f"Error creating data_privacy_security_specialist: {e}")
-            raise
+        model_name = os.getenv("GEMINI_MODEL", "gemini/gemini-2.0-flash-lite-001")
+        llm = GeminiLLM(
+            model=model_name,
+            api_key=os.getenv("GEMINI_API_KEY")
+        )
+        verbose_flag = os.getenv("CREW_VERBOSE", "false").lower() in ("1", "true", "yes")
+        return Agent(
+            config=self.agents_config['data_privacy_security_specialist'], # type: ignore[index]
+            llm=llm,
+            tools=[RagSearchTool()],
+            verbose=verbose_flag
+        )
 
-    #Agent 4
     @agent
     def risk_report_generator(self) -> Agent:
-        try:
-            print(f"Creating risk_report_generator agent...")
-            return Agent(
-                config=self.agents_config['risk_report_generator'],
-                llm=ollama_llm,
-                verbose=True,
-            )
-        except Exception as e:
-            print(f"Error creating risk_report_generator: {e}")
-            raise
+        model_name = os.getenv("GEMINI_MODEL", "gemini/gemini-2.0-flash-lite-001")
+        llm = GeminiLLM(
+            model=model_name,
+            api_key=os.getenv("GEMINI_API_KEY")
+        )
+        verbose_flag = os.getenv("CREW_VERBOSE", "false").lower() in ("1", "true", "yes")
+        return Agent(
+            config=self.agents_config['risk_report_generator'], # type: ignore[index]
+            llm=llm,
+            verbose=verbose_flag
+        )
 
-    
+    # To learn more about structured task outputs,
+    # task dependencies, and task callbacks, check out the documentation:
+    # https://docs.crewai.com/concepts/tasks#overview-of-a-task
     @task
     def ai_risk_analysis_task(self) -> Task:
         return Task(
@@ -177,11 +174,13 @@ class AiLatestDevelopment():
     @crew
     def crew(self) -> Crew:
         """Creates the AiLatestDevelopment crew"""
-       
+        # To learn how to add knowledge sources to your crew, check out the documentation:
+        # https://docs.crewai.com/concepts/knowledge#what-is-knowledge
 
+        verbose_flag = os.getenv("CREW_VERBOSE", "false").lower() in ("1", "true", "yes")
         return Crew(
             agents=self.agents,
             tasks=self.tasks,
             process=Process.sequential,
-            verbose=True,
+            verbose=verbose_flag,
         )
