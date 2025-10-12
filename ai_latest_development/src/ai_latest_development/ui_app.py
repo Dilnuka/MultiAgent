@@ -20,6 +20,173 @@ try:
 except Exception:
     from crew import AiLatestDevelopment
 
+# --- Risk card UI helpers ----------------------------------------------------
+import re
+from textwrap import shorten
+import html as _html
+
+_CARD_CSS = """
+<style>
+.risk-card { 
+  background: #ffffff; 
+  border-radius: 12px; 
+    padding: 18px 20px; 
+    box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+    border: 1px solid rgba(0,0,0,0.06);
+}
+.risk-card-header { display:flex; align-items:center; justify-content:space-between; gap: 12px; flex-wrap: wrap; }
+.risk-title { font-weight: 800; font-size: 1.15rem; margin: 0; letter-spacing: .2px; }
+.risk-badge { 
+  display:inline-block; 
+  padding: 4px 10px; 
+  border-radius: 999px; 
+  font-size: 0.85rem; 
+  font-weight: 700; 
+  color: #fff;
+}
+.risk-minimal { background: linear-gradient(135deg,#16a34a,#22c55e); }         /* green */
+.risk-limited { background: linear-gradient(135deg,#f59e0b,#eab308); color:#111827; } /* yellow */
+.risk-high { background: linear-gradient(135deg,#f97316,#fb923c); }            /* orange */
+.risk-unacceptable { background: linear-gradient(135deg,#7f1d1d,#991b1b); }    /* dark red */
+.risk-summary { margin-top: 12px; color: #374151; line-height: 1.5; }
+.risk-list { margin-top: 8px; margin-left: 18px; }
+.risk-actions { margin-top: 12px; display:flex; align-items:center; gap: 10px; flex-wrap: wrap; }
+.risk-learn { font-size: 0.9rem; color:#2563eb; text-decoration:none; }
+.risk-learn:hover { text-decoration: underline; }
+/* legend */
+.risk-legend { margin-top: 6px; font-size: 12px; color:#6b7280; }
+.risk-dot { display:inline-block; width:10px; height:10px; border-radius:999px; margin-right:6px; vertical-align:middle; }
+.dot-min { background:#16a34a; }
+.dot-lim { background:#eab308; }
+.dot-high { background:#f97316; }
+.dot-unacc { background:#7f1d1d; }
+@media (max-width: 640px) { .risk-card { padding: 14px; } }
+</style>
+"""
+
+def _ensure_card_css_once():
+    if not st.session_state.get("_risk_card_css_loaded"):
+        st.markdown(_CARD_CSS, unsafe_allow_html=True)
+        st.session_state["_risk_card_css_loaded"] = True
+
+def _risk_badge_class(level: str) -> str:
+    lvl = (level or "").strip().lower()
+    if lvl == "minimal":
+        return "risk-minimal"
+    if lvl == "limited":
+        return "risk-limited"
+    if lvl == "high":
+        return "risk-high"
+    if lvl == "unacceptable":
+        return "risk-unacceptable"
+    return "risk-limited"  # sensible default
+
+def render_risk_card(project_name: str, risk_level: str, summary: str, requirements: list[str]):
+    """Render a clean card with risk badge, short summary, requirements, and a learn-more link.
+
+    If risk_level == "High", also render a large action button to navigate to consultation packages.
+    """
+    _ensure_card_css_once()
+    with st.container():
+        badge_class = _risk_badge_class(risk_level)
+        # Normalize display text (capitalize first letter of each word)
+        rl_display = risk_level.strip().capitalize() if risk_level else "Unknown"
+        # Precompute bullet list HTML safely to avoid backslashes in f-string expressions
+        items_html = ''.join(f'<li>{_html.escape(str(item))}</li>' for item in (requirements or [])[:6])
+
+        # Card markup
+        st.markdown(
+            f"""
+            <div class="risk-card">
+              <div class="risk-card-header">
+                <h3 class="risk-title">{project_name}</h3>
+                <span class="risk-badge {badge_class}">{rl_display}</span>
+              </div>
+              <div class="risk-summary">{shorten(summary or 'No summary available.', width=300, placeholder='…')}</div>
+                            <ul class="risk-list">{items_html}</ul>
+              <div class="risk-actions">
+                <a class="risk-learn" href="https://eur-lex.europa.eu/eli/reg/2024/1689/oj" target="_blank" rel="noopener noreferrer">Learn more about the EU AI Act</a>
+              </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        # Conditional action button
+        if (risk_level or "").strip().lower() == "high":
+            if st.button("Consult our AI Ethics Specialist", type="primary", use_container_width=True):
+                # Prefer new Streamlit navigation if available
+                try:
+                    st.switch_page("pages/consultation-packages.py")
+                except Exception:
+                    # Fallback: show a link and instruction if direct switch unavailable
+                    st.markdown("[Open Consultation Packages](./?page=consultation-packages)")
+                    st.experimental_set_query_params(page="consultation-packages")
+                    st.rerun()
+
+def _parse_risk_info_from_markdown(md: str) -> tuple[str, str, list[str]]:
+    """Heuristic parser to get (risk_level, summary, requirements) from report markdown.
+    Returns fallbacks if not found.
+    """
+    text = md or ""
+    # Risk level
+    risk_patterns = [
+        r"overall\s*risk\s*level\s*[:\-]\s*(minimal|limited|high|unacceptable)",
+        r"risk\s*level\s*[:\-]\s*(minimal|limited|high|unacceptable)",
+        r"risk\s*[:\-]\s*(minimal|limited|high|unacceptable)",
+    ]
+    risk_level = ""
+    for pat in risk_patterns:
+        m = re.search(pat, text, flags=re.I)
+        if m:
+            risk_level = m.group(1).capitalize()
+            break
+    if not risk_level:
+        # naive fallback: pick the strongest level mentioned
+        for lvl in ["Unacceptable", "High", "Limited", "Minimal"]:
+            if re.search(fr"\b{lvl}\b", text, flags=re.I):
+                risk_level = lvl
+                break
+        if not risk_level:
+            risk_level = "Limited"
+
+    # Summary: try a Summary section or the first paragraph
+    summary = ""
+    m = re.search(r"^#+\s*summary\s*$([\s\S]*?)(^#|\Z)", text, flags=re.I | re.M)
+    if m:
+        block = m.group(1).strip()
+        summary = block.split("\n\n")[0].strip()
+    if not summary:
+        # First non-empty paragraph
+        parts = [p.strip() for p in re.split(r"\n\s*\n", text) if p.strip()]
+        if parts:
+            summary = parts[0][:500]
+
+    # Requirements: try to find a Compliance/Requirements section with bullets
+    reqs: list[str] = []
+    sec_pat = re.search(r"^#+\s*(compliance requirements|requirements|obligations)\s*$([\s\S]*?)(^#|\Z)", text, flags=re.I | re.M)
+    section = sec_pat.group(2).strip() if sec_pat else ""
+    if section:
+        for line in section.splitlines():
+            line = line.strip()
+            if line.startswith(("- ", "* ", "• ")):
+                reqs.append(line[2:].strip() if line[1] == ' ' else line[1:].strip())
+    if not reqs:
+        # Fallback essentials
+        reqs = [
+            "Establish a documented risk management system",
+            "Implement data governance and quality controls",
+            "Ensure transparency and user information measures",
+        ]
+    return risk_level, summary, reqs
+
+def _try_render_risk_card_from_report(project_name: str):
+    content = st.session_state.get('last_report_content')
+    if not content:
+        return
+    rl, sm, reqs = _parse_risk_info_from_markdown(content)
+    render_risk_card(project_name, rl, sm, reqs)
+
 # Optional PDF support via reportlab
 try:
     from reportlab.lib.pagesizes import A4
@@ -195,7 +362,7 @@ def _render_report_view(text: str, topic_for_filename: str, mtime: float | None 
                 data=pdf_bytes,
                 file_name=f"ai_risk_report_{topic_for_filename.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d')}.pdf",
                 mime="application/pdf",
-                key=f"download_{int(time.time())}"  # Unique key to avoid conflicts
+                key=f"download_{int(time.time())}"
             )
         except Exception as e:
             st.error(f"Failed to generate PDF: {e}")
@@ -341,6 +508,8 @@ if submitted:
                         st.session_state['last_report_topic'] = topic.strip()
                         st.subheader("Output")
                         _render_report_view(content, topic.strip(), mtime)
+                        # Render risk card extracted from the report
+                        _try_render_risk_card_from_report(topic.strip())
                     except Exception as e:
                         st.error(f"Could not read report.md: {e}")
                         content = str(result)
@@ -356,6 +525,7 @@ if submitted:
                     st.session_state['last_report_topic'] = topic.strip()
                     st.subheader("Output")
                     _render_report_view(content, topic.strip())
+                    _try_render_risk_card_from_report(topic.strip())
             except litellm.RateLimitError as e:
                 st.subheader("Output")
                 retry_delay = float(e.args[0].split("Please retry in ")[1].split("s")[0]) if "Please retry in " in str(e) else 60
@@ -372,6 +542,11 @@ else:
     if st.session_state.get('last_report_content') and st.session_state['has_submitted']:
         st.subheader("Output")
         _display_cached_report()
+        # Also try to show card from cached report
+        if st.session_state.get('last_report_content'):
+            _try_render_risk_card_from_report(st.session_state.get('last_report_topic', 'AI System'))
+        if st.session_state.get('last_report_content'):
+            _try_render_risk_card_from_report(st.session_state.get('last_report_topic', 'AI System'))
     else:
         st.subheader("Output")
         st.info("No output available yet. Please fill out the form and run an assessment to generate a report.")
