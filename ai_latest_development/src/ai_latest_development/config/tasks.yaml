@@ -29,6 +29,23 @@ data_privacy_security_task:
     and prioritized recommendations. Include mappings to privacy-by-design and zero-trust principles.
   agent: data_privacy_security_specialist
 
+scenario_risk_classification_task:
+  description: >
+    Analyze the provided scenario "{scenario}" for {topic} and classify it into one of three risk levels:
+    HIGH, MEDIUM, or LOW. Provide a confidence score (0-100) and brief reasoning for the classification.
+    Consider factors like potential impact, likelihood, data sensitivity, regulatory implications, and business impact.
+    Focus on immediate actionable insights for the user.
+  expected_output: >
+    A JSON response with the following structure:
+    {
+      "risk_level": "HIGH|MEDIUM|LOW",
+      "confidence_score": 85,
+      "reasoning": "Brief explanation of why this risk level was assigned",
+      "key_factors": ["factor1", "factor2", "factor3"],
+      "immediate_concerns": ["concern1", "concern2"]
+    }
+  agent: ai_risk_assessment_analyst
+
 risk_report_task:
   description: >
     Synthesize the three analyses into a concise, well-formatted professional report (approximately 1000 words)

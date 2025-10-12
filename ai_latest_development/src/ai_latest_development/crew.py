@@ -143,6 +143,12 @@ class AiLatestDevelopment():
         )
 
     @task
+    def scenario_risk_classification_task(self) -> Task:
+        return Task(
+            config=self.tasks_config['scenario_risk_classification_task'], 
+        )
+
+    @task
     def risk_report_task(self) -> Task:
         return Task(
             config=self.tasks_config['risk_report_task'], 
