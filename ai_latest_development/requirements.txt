@@ -1,0 +1,30 @@
+# Core AI and Multi-Agent Framework
+crewai[tools]>=0.165.1,<1.0.0
+
+# Environment and Configuration
+python-dotenv>=1.0.0
+
+# LLM Integration and API Management
+litellm>=1.46.0
+
+# Vector Database and Embeddings
+chromadb>=0.5.5
+
+# Google AI Integration
+google-generativeai>=0.7.2
+
+# PDF Processing
+pypdf>=4.2.0
+
+# Web UI Framework
+streamlit>=1.36.0
+
+# PDF Report Generation (Optional)
+reportlab>=4.0.0
+
+# Data Validation and Models
+pydantic>=2.0.0
+
+# Additional Dependencies (inferred from code)
+pathlib2>=2.3.0  # For enhanced path handling
+typing-extensions>=4.0.0  # For advanced typing features
