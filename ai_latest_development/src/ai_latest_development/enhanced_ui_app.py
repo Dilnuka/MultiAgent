@@ -9,6 +9,38 @@ import re
 
 import streamlit as st
 
+# Page config must be first Streamlit command
+st.set_page_config(
+    page_title="AI Risk & Compliance Assessor", 
+    layout="wide",
+    initial_sidebar_state="collapsed"
+)
+
+# Global ScrollToTop component - wraps entire app (equivalent to React ScrollToTop wrapper)
+def _global_scroll_to_top_component():
+    """Global ScrollToTop component - equivalent to React ScrollToTop wrapper"""
+    # This runs on every page load/rerun (equivalent to useEffect with empty dependency array)
+    _scroll_to_top()
+    
+    # Add CSS for smooth scrolling behavior
+    st.markdown("""
+    <style>
+        html, body {
+            scroll-behavior: smooth;
+        }
+        
+        /* Ensure all pages start at top */
+        .main .block-container {
+            padding-top: 1rem !important;
+        }
+        
+        /* Force scroll position reset on any navigation */
+        body {
+            scroll-position: 0 0;
+        }
+    </style>
+    """, unsafe_allow_html=True)
+
 # Load .env early so downstream imports see GEMINI_API_KEY
 try:
     from dotenv import load_dotenv
@@ -32,6 +64,52 @@ try:
     REPORTLAB_AVAILABLE = True
 except Exception:
     REPORTLAB_AVAILABLE = False
+
+def _scroll_to_top():
+    """Global scroll-to-top behavior - equivalent to React useEffect hook"""
+    st.markdown("""
+    <script>
+        // Global scroll-to-top behavior (equivalent to React useEffect)
+        function scrollToTop() {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+        
+        // Execute immediately
+        scrollToTop();
+        
+        // Execute when DOM is ready (equivalent to useEffect with empty dependency array)
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', scrollToTop);
+        } else {
+            scrollToTop();
+        }
+        
+        // Execute when page is fully loaded
+        window.addEventListener('load', scrollToTop);
+        
+        // Execute on any navigation/route change (equivalent to useEffect with route dependency)
+        let currentPath = window.location.pathname;
+        const observer = new MutationObserver(() => {
+            if (window.location.pathname !== currentPath) {
+                currentPath = window.location.pathname;
+                setTimeout(scrollToTop, 100);
+            }
+        });
+        observer.observe(document.body, { childList: true, subtree: true });
+        
+        // Execute on any Streamlit rerun (equivalent to useEffect on component mount)
+        const originalPushState = history.pushState;
+        history.pushState = function() {
+            originalPushState.apply(history, arguments);
+            setTimeout(scrollToTop, 50);
+        };
+        
+        // Execute on browser back/forward
+        window.addEventListener('popstate', () => {
+            setTimeout(scrollToTop, 50);
+        });
+    </script>
+    """, unsafe_allow_html=True)
 
 def _md_to_pdf_bytes(markdown_text: str) -> bytes:
     """Convert markdown text to formatted PDF using ReportLab's Platypus for better rendering."""
@@ -326,194 +404,366 @@ def _render_risk_result(risk_data: dict):
     """Render the risk analysis result with modern styling."""
     theme = _get_risk_theme(risk_data["risk_level"])
     
-    st.markdown(f"""
-    <div style="
-        background-color: {theme['bg_color']};
-        border: 2px solid {theme['border_color']};
-        border-radius: 12px;
-        padding: 24px;
-        margin: 16px 0;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-    ">
-        <div style="display: flex; align-items: center; margin-bottom: 16px;">
-            <span style="font-size: 32px; margin-right: 12px;">{theme['icon']}</span>
-            <div>
-                <h2 style="color: {theme['color']}; margin: 0; font-size: 24px; font-weight: 600;">
-                    {theme['title']}
-                </h2>
-                <p style="color: #6b7280; margin: 4px 0 0 0; font-size: 14px;">
-                    Confidence: {risk_data['confidence_score']}%
-                </p>
-            </div>
-        </div>
-        
-        <div style="margin-bottom: 16px;">
-            <h4 style="color: {theme['color']}; margin: 0 0 8px 0; font-size: 16px;">Analysis Summary</h4>
-            <p style="color: #374151; margin: 0; line-height: 1.5;">
-                {risk_data['reasoning']}
-            </p>
-        </div>
-        
-        <div style="margin-bottom: 16px;">
-            <h4 style="color: {theme['color']}; margin: 0 0 8px 0; font-size: 16px;">Key Risk Factors</h4>
-            <ul style="color: #374151; margin: 0; padding-left: 20px;">
-                {''.join([f'<li style="margin-bottom: 4px;">{factor}</li>' for factor in risk_data['key_factors']])}
-            </ul>
-        </div>
-        
-        <div>
-            <h4 style="color: {theme['color']}; margin: 0 0 8px 0; font-size: 16px;">Immediate Concerns</h4>
-            <ul style="color: #374151; margin: 0; padding-left: 20px;">
-                {''.join([f'<li style="margin-bottom: 4px;">{concern}</li>' for concern in risk_data['immediate_concerns']])}
-            </ul>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    # Show Pro upgrade suggestion for HIGH risk
-    if risk_data["risk_level"] == "HIGH":
-        st.markdown("""
+    # Create the risk result card using Streamlit components
+    with st.container():
+        st.markdown(f"""
         <div style="
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background-color: {theme['bg_color']};
+            border: 2px solid {theme['border_color']};
             border-radius: 12px;
             padding: 24px;
             margin: 16px 0;
-            color: white;
-            text-align: center;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
         ">
-            <h3 style="margin: 0 0 12px 0; font-size: 20px;">🎯 Professional Risk Consultation</h3>
-            <p style="margin: 0 0 20px 0; opacity: 0.9;">
-                For high-risk scenarios like this, we recommend consulting with our AI risk specialists 
-                for detailed analysis and mitigation strategies.
-            </p>
-            <button style="
-                background: white;
-                color: #667eea;
-                border: none;
-                padding: 12px 24px;
-                border-radius: 8px;
-                font-weight: 600;
-                font-size: 16px;
-                cursor: pointer;
-                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            " onclick="window.location.href='#upgrade'">
-                Upgrade to Pro
-            </button>
+            <div style="display: flex; align-items: center; margin-bottom: 16px;">
+                <span style="font-size: 32px; margin-right: 12px;">{theme['icon']}</span>
+                <div>
+                    <h2 style="color: {theme['color']}; margin: 0; font-size: 24px; font-weight: 600;">
+                        {theme['title']}
+                    </h2>
+                    <p style="color: #6b7280; margin: 4px 0 0 0; font-size: 14px;">
+                        Confidence: {risk_data['confidence_score']}%
+                    </p>
+                </div>
+            </div>
         </div>
         """, unsafe_allow_html=True)
+        
+        # Analysis Summary
+        st.markdown(f"**Analysis Summary**")
+        st.info(risk_data['reasoning'])
+        
+        # Key Risk Factors
+        st.markdown(f"**Key Risk Factors**")
+        for factor in risk_data['key_factors']:
+            st.markdown(f"• {factor}")
+        
+        # Immediate Concerns
+        st.markdown(f"**Immediate Concerns**")
+        for concern in risk_data['immediate_concerns']:
+            st.markdown(f"• {concern}")
+    
+    # Show Pro upgrade suggestion for HIGH risk
+    if risk_data["risk_level"] == "HIGH":
+        # Display the professional banner image
+        st.image("../images/Abstract Technology Profile LinkedIn Banner.png", use_container_width=True)
 
 def _render_upgrade_page():
     """Render the Pro upgrade page with payment form."""
     st.markdown("## 🚀 Upgrade to Pro")
     st.markdown("Get professional AI risk consultation and detailed analysis.")
     
-    with st.container():
-        st.markdown("""
-        <div style="
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border-radius: 12px;
-            padding: 32px;
-            color: white;
-            text-align: center;
-            margin-bottom: 24px;
-        ">
-            <h2 style="margin: 0 0 16px 0; font-size: 28px;">Pro Risk Analysis</h2>
-            <p style="margin: 0; font-size: 18px; opacity: 0.9;">
-                Get expert consultation from certified AI risk specialists
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
+    # Demo payment button
+    if st.button("🎯 Demo: Auto-Fill Payment", use_container_width=True, type="secondary"):
+        st.session_state['demo_payment'] = True
+        st.rerun()
+    
+    # Display the Pro Risk Analysis banner image directly
+    st.image("../images/Black and Gray Minimalist Shapes Personal Profile LinkedIn Banner (1).png", use_container_width=True)
+    
+    col1, col2 = st.columns([2, 1])
+    
+    with col1:
+        # Demo values
+        demo_card = "4242 4242 4242 4242"
+        demo_expiry = "12/25"
+        demo_cvv = "123"
+        demo_name = "John Doe"
         
-        col1, col2 = st.columns([2, 1])
+        st.markdown("### 💳 Payment Details")
         
-        with col1:
-            st.markdown("### 💳 Payment Information")
+        # Card number with real-time auto-formatting
+        st.markdown("**Card Number**")
+        
+        # Initialize card number formatting in session state
+        if 'card_number_formatted' not in st.session_state:
+            st.session_state['card_number_formatted'] = demo_card if st.session_state.get('demo_payment') else ""
+        
+        card_number_input = st.text_input(
+            "",
+            value=st.session_state['card_number_formatted'],
+            placeholder="1234 5678 9012 3456",
+            help="Use 4242 4242 4242 4242 for demo",
+            key="card_number_input",
+            label_visibility="collapsed",
+            max_chars=19  # 16 digits + 3 spaces = 19 characters max
+        )
+        
+        # Real-time formatting for card number (strict 16 digits)
+        if card_number_input != st.session_state.get('card_number_formatted', ''):
+            # Remove all non-digits
+            digits_only = ''.join(filter(str.isdigit, card_number_input))
             
-            with st.form("payment_form"):
-                card_number = st.text_input(
-                    "Card Number",
-                    placeholder="1234 5678 9012 3456",
-                    help="Use 4242 4242 4242 4242 for demo"
-                )
+            # Strict limit to exactly 16 digits - no more, no less
+            if len(digits_only) > 16:
+                digits_only = digits_only[:16]
+                st.warning("⚠️ Card number limited to exactly 16 digits")
+            
+            # Auto-format with spaces every 4 digits
+            formatted = ''
+            for i in range(0, len(digits_only), 4):
+                if i > 0:
+                    formatted += ' '
+                formatted += digits_only[i:i+4]
+            
+            # Update session state with formatted version
+            st.session_state['card_number_formatted'] = formatted
+            st.rerun()
+        
+        # Show formatted card number preview (only when user stops typing)
+        if card_number_input and len(card_number_input.replace(" ", "")) >= 4:
+            digits_only = ''.join(filter(str.isdigit, card_number_input))
+            if len(digits_only) >= 4:
+                formatted_preview = ' '.join([digits_only[i:i+4] for i in range(0, len(digits_only), 4)])
+                st.markdown(f"""
+                <div style="
+                    background: #f8f9fa;
+                    border: 1px solid #dee2e6;
+                    border-radius: 6px;
+                    padding: 8px 12px;
+                    font-family: 'Courier New', monospace;
+                    font-size: 16px;
+                    letter-spacing: 2px;
+                    color: #495057;
+                ">
+                    {formatted_preview}
+                </div>
+                """, unsafe_allow_html=True)
+        
+        # Validate card number
+        if card_number_input:
+            # Remove all non-digits for validation
+            digits_only = ''.join(filter(str.isdigit, card_number_input))
+            card_number = digits_only
+            
+            # Show validation feedback
+            if len(digits_only) == 16:
+                # Check for common card types
+                if digits_only.startswith('4'):
+                    st.success("✅ Valid Visa card (16 digits)")
+                elif digits_only.startswith(('5', '2')):
+                    st.success("✅ Valid Mastercard (16 digits)")
+                elif digits_only.startswith('3'):
+                    st.success("✅ Valid American Express (16 digits)")
+                elif digits_only.startswith('6'):
+                    st.success("✅ Valid Discover card (16 digits)")
+                else:
+                    st.success("✅ Valid card number format (16 digits)")
+            elif len(digits_only) > 16:
+                st.warning("⚠️ Card number too long (max 16 digits)")
+            elif len(digits_only) > 0:
+                remaining = 16 - len(digits_only)
+                st.info(f"📝 {remaining} digits remaining")
                 
-                col_exp, col_cvv = st.columns(2)
-                with col_exp:
-                    expiry_date = st.text_input(
-                        "Expiry Date",
-                        placeholder="MM/YY",
-                        help="Use 12/25 for demo"
-                    )
-                with col_cvv:
-                    cvv = st.text_input(
-                        "CVV",
-                        placeholder="123",
-                        help="Use 123 for demo"
-                    )
+            # Show card type hint
+            if len(digits_only) >= 4:
+                first_digit = digits_only[0]
+                if first_digit == '4':
+                    st.info("💳 Visa card detected")
+                elif first_digit == '5':
+                    st.info("💳 Mastercard detected")
+                elif first_digit == '3':
+                    st.info("💳 American Express detected")
+        else:
+            card_number = ""
+        
+        col_exp, col_cvv = st.columns(2)
+        with col_exp:
+            # Expiry date with real-time auto-formatting
+            # Initialize expiry date formatting in session state
+            if 'expiry_formatted' not in st.session_state:
+                st.session_state['expiry_formatted'] = demo_expiry if st.session_state.get('demo_payment') else ""
+            
+            expiry_input = st.text_input(
+                "Expiry Date",
+                value=st.session_state['expiry_formatted'],
+                placeholder="MM/YY",
+                help="Use 12/25 for demo",
+                key="expiry_input",
+                max_chars=5  # MM/YY = 5 characters max
+            )
+            
+            # Real-time formatting for expiry date (strict 4 digits)
+            if expiry_input != st.session_state.get('expiry_formatted', ''):
+                # Remove all non-digits
+                digits_only = ''.join(filter(str.isdigit, expiry_input))
                 
-                cardholder_name = st.text_input(
-                    "Cardholder Name",
-                    placeholder="John Doe"
-                )
+                # Strict limit to exactly 4 digits - no more, no less
+                if len(digits_only) > 4:
+                    digits_only = digits_only[:4]
+                    st.warning("⚠️ Expiry date limited to exactly 4 digits (MMYY)")
                 
-                submitted = st.form_submit_button(
-                    "Complete Payment",
-                    type="primary",
-                    use_container_width=True
-                )
+                # Auto-format with slash after 2 digits
+                formatted = ''
+                if len(digits_only) >= 2:
+                    formatted = digits_only[:2] + '/' + digits_only[2:]
+                else:
+                    formatted = digits_only
                 
-                if submitted:
-                    # Validate demo card
-                    if (card_number.replace(" ", "") == "4242424242424242" and 
-                        expiry_date == "12/25" and 
-                        cvv == "123" and 
-                        cardholder_name.strip()):
+                # Update session state with formatted version
+                st.session_state['expiry_formatted'] = formatted
+                st.rerun()
+            
+            # Validate expiry date
+            if expiry_input:
+                # Remove all non-digits for validation
+                digits_only = ''.join(filter(str.isdigit, expiry_input))
+                expiry_date = expiry_input
+                
+                # Show validation feedback
+                if len(digits_only) == 4:
+                    month = digits_only[:2]
+                    year = digits_only[2:4]
+                    try:
+                        month_int = int(month)
+                        year_int = int(year)
+                        current_year = datetime.now().year % 100
                         
-                        st.session_state['payment_successful'] = True
-                        st.success("✅ Payment successful! Redirecting to specialist contact...")
-                        time.sleep(2)
-                        st.rerun()
-                    else:
-                        st.error("❌ Invalid card details. Please use the demo card: 4242 4242 4242 4242")
+                        if 1 <= month_int <= 12:
+                            if year_int >= current_year:
+                                st.success(f"✅ Valid expiry: {month}/{year}")
+                            else:
+                                st.warning(f"⚠️ Expired card (year {year} is in the past)")
+                        else:
+                            st.error(f"❌ Invalid month '{month}' (must be 01-12)")
+                    except ValueError:
+                        st.warning("⚠️ Invalid expiry format")
+                elif len(digits_only) > 4:
+                    st.warning("⚠️ Expiry date too long (max 4 digits)")
+                elif len(digits_only) > 0:
+                    remaining = 4 - len(digits_only)
+                    st.info(f"📝 {remaining} digits remaining")
+            else:
+                expiry_date = ""
+                
+        with col_cvv:
+            # CVV with strict length limit (exactly 3 digits)
+            # Initialize CVV formatting in session state
+            if 'cvv_formatted' not in st.session_state:
+                st.session_state['cvv_formatted'] = demo_cvv if st.session_state.get('demo_payment') else ""
+            
+            cvv_input = st.text_input(
+                "CVV",
+                value=st.session_state['cvv_formatted'],
+                placeholder="123",
+                help="Use 123 for demo",
+                key="cvv_input",
+                max_chars=3  # Exactly 3 digits
+            )
+            
+            # Real-time formatting for CVV (strict 3 digits)
+            if cvv_input != st.session_state.get('cvv_formatted', ''):
+                # Remove all non-digits
+                digits_only = ''.join(filter(str.isdigit, cvv_input))
+                
+                # Strict limit to exactly 3 digits - no more, no less
+                if len(digits_only) > 3:
+                    digits_only = digits_only[:3]
+                    st.warning("⚠️ CVV limited to exactly 3 digits")
+                
+                # Update session state with formatted version
+                st.session_state['cvv_formatted'] = digits_only
+                st.rerun()
+            
+            # Validate CVV (strict 3 digits)
+            if cvv_input:
+                # Use the formatted CVV value
+                cvv = st.session_state['cvv_formatted']
+                
+                # Show validation feedback
+                if len(cvv) == 3:
+                    st.success("✅ Valid CVV (3 digits)")
+                elif len(cvv) > 0:
+                    remaining = 3 - len(cvv)
+                    st.info(f"📝 {remaining} digits remaining")
+            else:
+                cvv = ""
         
-        with col2:
-            st.markdown("### 📋 Pro Benefits")
-            st.markdown("""
-            - **Expert Consultation**: 1-hour session with certified AI risk specialist
-            - **Detailed Analysis**: Comprehensive risk assessment report
-            - **Mitigation Strategies**: Custom recommendations for your scenario
-            - **Compliance Guidance**: Regulatory compliance roadmap
-            - **Follow-up Support**: 30-day email support
-            """)
-            
-            st.markdown("### 💰 Pricing")
-            st.markdown("""
-            **One-time Payment**
-            
-            $299 USD
-            
-            *Includes all Pro benefits*
-            """)
+        cardholder_name = st.text_input(
+            "Cardholder Name",
+            value=demo_name if st.session_state.get('demo_payment') else "",
+            placeholder="John Doe"
+        )
+        
+        # Simple payment button - no form submission complexity
+        col_submit, col_test = st.columns([2, 1])
+        with col_submit:
+            if st.button("Complete Payment", type="primary", use_container_width=True):
+                # Validate payment details using formatted values
+                card_clean = ''.join(filter(str.isdigit, st.session_state.get('card_number_formatted', '')))
+                expiry_clean = ''.join(filter(str.isdigit, st.session_state.get('expiry_formatted', '')))
+                cvv_value = st.session_state.get('cvv_formatted', '')
+                
+                # Check if all fields are filled and valid (exact lengths)
+                validation_errors = []
+                
+                if len(card_clean) != 16:
+                    validation_errors.append("Card number must be exactly 16 digits")
+                
+                if len(expiry_clean) != 4:
+                    validation_errors.append("Expiry date must be exactly 4 digits (MMYY)")
+                else:
+                    month = int(expiry_clean[:2])
+                    year = int(expiry_clean[2:4])
+                    current_year = datetime.now().year % 100
+                    
+                    if month < 1 or month > 12:
+                        validation_errors.append("Invalid month (must be 01-12)")
+                    elif year < current_year:
+                        validation_errors.append("Card has expired")
+                
+                if len(cvv_value) != 3:
+                    validation_errors.append("CVV must be exactly 3 digits")
+                
+                if not cardholder_name.strip():
+                    validation_errors.append("Cardholder name is required")
+                
+                # If no validation errors, process payment
+                if not validation_errors:
+                    st.session_state['payment_successful'] = True
+                    st.session_state['current_page'] = 'contact'
+                    st.success("✅ Payment successful! Redirecting to specialist contact...")
+                    st.rerun()
+                else:
+                    st.error("❌ Payment validation failed:")
+                    for error in validation_errors:
+                        st.write(f"• {error}")
+                    
+                    # Show demo card hint
+                    st.info("💡 For demo purposes, you can use: Card: 4242 4242 4242 4242, Expiry: 12/25, CVV: 123")
+        
+        with col_test:
+            if st.button("🧪 Test Payment", use_container_width=True):
+                # Auto-fill with demo values for testing
+                st.session_state['demo_payment'] = True
+                st.rerun()
+    
+    with col2:
+        st.markdown("### 📋 Pro Benefits")
+        st.markdown("""
+        - **Expert Consultation**: 1-hour session with certified AI risk specialist
+        - **Detailed Analysis**: Comprehensive risk assessment report
+        - **Mitigation Strategies**: Custom recommendations for your scenario
+        - **Compliance Guidance**: Regulatory compliance roadmap
+        - **Follow-up Support**: 30-day email support
+        """)
+        
+        st.markdown("### 💰 Pricing")
+        st.markdown("""
+        **One-time Payment**
+        
+        $299 USD
+        
+        *Includes all Pro benefits*
+        """)
 
 def _render_contact_page():
     """Render the human specialist contact page."""
     st.markdown("## 🎉 Welcome to Pro!")
     st.markdown("Your payment was successful. Here's how to connect with your AI risk specialist:")
     
-    st.markdown("""
-    <div style="
-        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-        border-radius: 12px;
-        padding: 32px;
-        color: white;
-        text-align: center;
-        margin-bottom: 24px;
-    ">
-        <h2 style="margin: 0 0 16px 0; font-size: 28px;">✅ Payment Successful!</h2>
-        <p style="margin: 0; font-size: 18px; opacity: 0.9;">
-            A risk specialist will contact you within 24 hours
-        </p>
-    </div>
-    """, unsafe_allow_html=True)
+    # Display the Payment Successful banner image directly
+    st.image("../images/Blue Futuristic Technology LinkedIn Background Photo.png", use_container_width=True)
     
     col1, col2 = st.columns(2)
     
@@ -610,16 +860,47 @@ if 'risk_analysis_result' not in st.session_state:
 if 'payment_successful' not in st.session_state:
     st.session_state['payment_successful'] = False
 
+# Auto-scroll to top when page changes
+if 'last_page' not in st.session_state:
+    st.session_state['last_page'] = st.session_state['current_page']
+
+if st.session_state['last_page'] != st.session_state['current_page']:
+    st.session_state['last_page'] = st.session_state['current_page']
+    # Scroll to top when page changes - use multiple approaches for reliability
+    _scroll_to_top()
+    
+    # Add a hidden element to force scroll reset
+    st.markdown("""
+    <div id="scroll-reset" style="position: absolute; top: 0; left: 0; width: 1px; height: 1px; opacity: 0;"></div>
+    <script>
+        document.getElementById('scroll-reset').scrollIntoView();
+    </script>
+    """, unsafe_allow_html=True)
+
+# Global ScrollToTop component - runs on every page (equivalent to React ScrollToTop wrapper)
+_global_scroll_to_top_component()
+
 # Main UI
-st.set_page_config(
-    page_title="AI Risk & Compliance Assessor", 
-    layout="wide",
-    initial_sidebar_state="collapsed"
-)
 
 # Custom CSS for modern styling
 st.markdown("""
 <style>
+    /* Force page to always start at top */
+    html, body {
+        scroll-behavior: smooth;
+        scroll-padding-top: 0;
+    }
+    
+    /* Ensure main content starts at top */
+    .main .block-container {
+        padding-top: 1rem !important;
+    }
+    
+    /* Force scroll position reset */
+    body {
+        scroll-position: 0 0;
+    }
+    
     .main-header {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         padding: 2rem;
@@ -667,6 +948,65 @@ if st.session_state['current_page'] != 'main':
 
 # Main page
 if st.session_state['current_page'] == 'main':
+    # Demo data button
+    col1, col2, col3 = st.columns([2, 1, 1])
+    with col1:
+        st.markdown("### AI Risk & Compliance Assessment")
+    with col2:
+        if st.button("🎯 Demo: High Risk", use_container_width=True):
+            st.session_state['form_inputs'] = {
+                'topic': 'Banking Customer Support Chatbot',
+                'data_use': 'Processes chat transcripts with PII; stores logs; fine-tunes on redacted data; handles sensitive financial information',
+                'scenario': 'Prompt injection leading to data exfiltration; potential for attackers to extract customer financial data through malicious prompts',
+                'region_choice': 'EU',
+                'custom_region': ''
+            }
+            st.rerun()
+    with col3:
+        if st.button("📊 Demo: Medium Risk", use_container_width=True):
+            st.session_state['form_inputs'] = {
+                'topic': 'E-commerce Recommendation Engine',
+                'data_use': 'Analyzes user browsing history and purchase patterns; stores behavioral data; personalizes product recommendations',
+                'scenario': 'Membership inference attacks on user data; potential privacy leakage through recommendation patterns',
+                'region_choice': 'USA',
+                'custom_region': ''
+            }
+            st.rerun()
+    
+    # Demo Pro Path button
+    if st.button("🚀 Demo: Complete Pro Upgrade Flow", use_container_width=True, type="primary"):
+        st.session_state['form_inputs'] = {
+            'topic': 'Healthcare AI Diagnostic Assistant',
+            'data_use': 'Processes patient medical records, lab results, and imaging data; stores PHI; provides diagnostic recommendations',
+            'scenario': 'Model hallucination in healthcare leading to misdiagnosis; data poisoning attacks compromising patient safety',
+            'region_choice': 'EU',
+            'custom_region': ''
+        }
+        # Auto-run risk analysis
+        risk_result = {
+            "risk_level": "HIGH",
+            "confidence_score": 92,
+            "reasoning": "Healthcare AI systems with direct patient impact present critical risks. Model hallucinations could lead to life-threatening misdiagnoses, while data poisoning could compromise patient safety across the entire system.",
+            "key_factors": [
+                "Life-critical medical decisions",
+                "Highly sensitive PHI data",
+                "Regulatory compliance requirements (HIPAA, GDPR)",
+                "Potential for catastrophic patient harm"
+            ],
+            "immediate_concerns": [
+                "Patient safety and liability exposure",
+                "Regulatory compliance violations",
+                "Medical malpractice risks",
+                "Data breach potential"
+            ]
+        }
+        st.session_state['risk_analysis_result'] = risk_result
+        st.session_state['current_scenario'] = st.session_state['form_inputs']['scenario']
+        st.session_state['current_topic'] = st.session_state['form_inputs']['topic']
+        st.session_state['current_data_use'] = st.session_state['form_inputs']['data_use']
+        st.session_state['current_region'] = st.session_state['form_inputs']['region_choice']
+        st.rerun()
+    
     with st.form("inputs"):
         topic = st.text_input(
             "Use case / System name",
@@ -850,6 +1190,7 @@ if st.session_state['current_page'] == 'main':
         with col3:
             if st.button("🔄 Analyze New Scenario", use_container_width=True):
                 st.session_state['risk_analysis_result'] = None
+                _scroll_to_top()
                 st.rerun()
     
     # Display cached report if available and no new analysis
@@ -916,33 +1257,34 @@ elif st.session_state['current_page'] == 'full_assessment':
     else:
         st.error("No scenario data available for full assessment.")
 
-# Advanced utilities
-with st.expander("Advanced"):
-    col1, _ = st.columns(2)
-    with col1:
-        if st.button("Delete existing report.md"):
-            rp_obj = _find_report_path()
-            rp = str(rp_obj.resolve()) if rp_obj else str((Path.cwd() / 'report.md').resolve())
-            try:
-                if os.path.exists(rp):
-                    os.remove(rp)
-                    st.success("Deleted report.md")
-                    # Clear session state and force rerun
-                    for k in ("last_report_content", "last_report_mtime", "last_report_topic", "report_text"):
-                        if k in st.session_state:
-                            del st.session_state[k]
-                    st.session_state['has_submitted'] = False
-                    st.rerun()  # Force app to rerun and update UI
-                else:
-                    st.info("No report.md found")
-            except Exception as e:
-                st.error(f"Could not delete report.md: {e}")
+# Advanced utilities (only show on main page)
+if st.session_state['current_page'] == 'main':
+    with st.expander("Advanced"):
+        col1, _ = st.columns(2)
+        with col1:
+            if st.button("Delete existing report.md"):
+                rp_obj = _find_report_path()
+                rp = str(rp_obj.resolve()) if rp_obj else str((Path.cwd() / 'report.md').resolve())
+                try:
+                    if os.path.exists(rp):
+                        os.remove(rp)
+                        st.success("Deleted report.md")
+                        # Clear session state and force rerun
+                        for k in ("last_report_content", "last_report_mtime", "last_report_topic", "report_text"):
+                            if k in st.session_state:
+                                del st.session_state[k]
+                        st.session_state['has_submitted'] = False
+                        st.rerun()  # Force app to rerun and update UI
+                    else:
+                        st.info("No report.md found")
+                except Exception as e:
+                    st.error(f"Could not delete report.md: {e}")
 
-# Footer
-st.markdown("---")
-st.markdown("""
-<div style="text-align: center; color: #6b7280; padding: 2rem;">
-    <p>AI Risk & Compliance Assessor - Enhanced with Pro Consultation</p>
-    <p>Powered by Multi-Agent AI System | © 2024</p>
-</div>
-""", unsafe_allow_html=True)
+    # Footer
+    st.markdown("---")
+    st.markdown("""
+    <div style="text-align: center; color: #6b7280; padding: 2rem;">
+        <p>AI Risk & Compliance Assessor - Enhanced with Pro Consultation</p>
+        <p>Powered by Multi-Agent AI System | © 2024</p>
+    </div>
+    """, unsafe_allow_html=True)
