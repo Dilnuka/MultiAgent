@@ -13,7 +13,7 @@ import streamlit as st
 st.set_page_config(
     page_title="AI Risk & Compliance Assessor", 
     layout="wide",
-    initial_sidebar_state="collapsed"
+    initial_sidebar_state="expanded"
 )
 
 # Global ScrollToTop component - wraps entire app (equivalent to React ScrollToTop wrapper)
@@ -29,9 +29,10 @@ def _global_scroll_to_top_component():
             scroll-behavior: smooth;
         }
         
-        /* Ensure all pages start at top */
+        /* Ensure all pages start at top with minimal padding */
         .main .block-container {
-            padding-top: 1rem !important;
+            padding-top: 0.25rem !important;
+            padding-bottom: 0.25rem !important;
         }
         
         /* Force scroll position reset on any navigation */
@@ -757,6 +758,222 @@ def _render_upgrade_page():
         *Includes all Pro benefits*
         """)
 
+def _render_sidebar():
+    """Render ChatGPT-style sidebar with navigation and options."""
+    with st.sidebar:
+        # Header with logo and title
+        st.markdown("""
+        <div style="
+            padding: 16px 0;
+            border-bottom: 1px solid #e5e7eb;
+            margin-bottom: 16px;
+        ">
+            <h2 style="margin: 0; color: #1f2937; font-size: 18px; font-weight: 600;">
+                🤖 AI Risk Assessor
+            </h2>
+            <p style="margin: 4px 0 0 0; color: #6b7280; font-size: 12px;">
+                Multi-Agent Compliance System
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # New Analysis Button
+        if st.button("➕ New Analysis", use_container_width=True, type="primary"):
+            st.session_state['current_page'] = 'main'
+            st.session_state['risk_analysis_result'] = None
+            st.session_state['form_inputs'] = {
+                'topic': '',
+                'data_use': '',
+                'scenario': '',
+                'region_choice': 'EU',
+                'custom_region': ''
+            }
+            st.rerun()
+        
+        st.markdown("---")
+        
+        # Previous Reports Section
+        st.markdown("### 📋 Previous Reports")
+        
+        # Check for existing reports
+        if st.session_state.get('last_report_content'):
+            report_topic = st.session_state.get('last_report_topic', 'AI Risk Report')
+            report_mtime = st.session_state.get('last_report_mtime', 0)
+            
+            if report_mtime:
+                report_date = datetime.fromtimestamp(report_mtime).strftime('%Y-%m-%d %H:%M')
+                st.markdown(f"**{report_topic}**")
+                st.caption(f"Generated: {report_date}")
+                
+                if st.button("📄 View Report", use_container_width=True):
+                    st.session_state['current_page'] = 'report_view'
+                    st.rerun()
+                
+                if st.button("🗑️ Delete Report", use_container_width=True):
+                    # Clear report from session state
+                    for key in ['last_report_content', 'last_report_mtime', 'last_report_topic']:
+                        if key in st.session_state:
+                            del st.session_state[key]
+                    st.session_state['has_submitted'] = False
+                    st.rerun()
+        else:
+            st.info("No previous reports available")
+        
+        st.markdown("---")
+        
+        # Pro Subscription Section
+        st.markdown("### 🚀 Pro Features")
+        
+        if st.session_state.get('payment_successful'):
+            st.success("✅ Pro Active")
+            st.markdown("""
+            - Expert consultation
+            - Detailed analysis
+            - Priority support
+            """)
+        else:
+            st.markdown("""
+            **Upgrade to Pro:**
+            - Expert AI risk consultation
+            - Detailed compliance reports
+            - Priority support
+            - Advanced analytics
+            """)
+            
+            if st.button("💎 Subscribe to Pro", use_container_width=True, type="secondary"):
+                st.session_state['current_page'] = 'upgrade'
+                st.rerun()
+        
+        st.markdown("---")
+        
+        # Quick Actions
+        st.markdown("### ⚡ Quick Actions")
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("🎯 High Risk Demo", use_container_width=True):
+                st.session_state['form_inputs'] = {
+                    'topic': 'Banking Customer Support Chatbot',
+                    'data_use': 'Processes chat transcripts with PII; stores logs; fine-tunes on redacted data; handles sensitive financial information',
+                    'scenario': 'Prompt injection leading to data exfiltration; potential for attackers to extract customer financial data through malicious prompts',
+                    'region_choice': 'EU',
+                    'custom_region': ''
+                }
+                st.session_state['current_page'] = 'main'
+                st.rerun()
+        
+        with col2:
+            if st.button("📊 Medium Risk Demo", use_container_width=True):
+                st.session_state['form_inputs'] = {
+                    'topic': 'E-commerce Recommendation Engine',
+                    'data_use': 'Analyzes user browsing history and purchase patterns; stores behavioral data; personalizes product recommendations',
+                    'scenario': 'Membership inference attacks on user data; potential privacy leakage through recommendation patterns',
+                    'region_choice': 'USA',
+                    'custom_region': ''
+                }
+                st.session_state['current_page'] = 'main'
+                st.rerun()
+        
+        if st.button("🚀 Complete Pro Flow Demo", use_container_width=True):
+            st.session_state['form_inputs'] = {
+                'topic': 'Healthcare AI Diagnostic Assistant',
+                'data_use': 'Processes patient medical records, lab results, and imaging data; stores PHI; provides diagnostic recommendations',
+                'scenario': 'Model hallucination in healthcare leading to misdiagnosis; data poisoning attacks compromising patient safety',
+                'region_choice': 'EU',
+                'custom_region': ''
+            }
+            # Auto-run risk analysis
+            risk_result = {
+                "risk_level": "HIGH",
+                "confidence_score": 92,
+                "reasoning": "Healthcare AI systems with direct patient impact present critical risks. Model hallucinations could lead to life-threatening misdiagnoses, while data poisoning could compromise patient safety across the entire system.",
+                "key_factors": [
+                    "Life-critical medical decisions",
+                    "Highly sensitive PHI data",
+                    "Regulatory compliance requirements (HIPAA, GDPR)",
+                    "Potential for catastrophic patient harm"
+                ],
+                "immediate_concerns": [
+                    "Patient safety and liability exposure",
+                    "Regulatory compliance violations",
+                    "Medical malpractice risks",
+                    "Data breach potential"
+                ]
+            }
+            st.session_state['risk_analysis_result'] = risk_result
+            st.session_state['current_scenario'] = st.session_state['form_inputs']['scenario']
+            st.session_state['current_topic'] = st.session_state['form_inputs']['topic']
+            st.session_state['current_data_use'] = st.session_state['form_inputs']['data_use']
+            st.session_state['current_region'] = st.session_state['form_inputs']['region_choice']
+            st.session_state['current_page'] = 'main'
+            st.rerun()
+        
+        st.markdown("---")
+        
+        # Settings and Help
+        st.markdown("### ⚙️ Settings")
+        
+        with st.expander("🔧 Advanced Options"):
+            if st.button("🗑️ Clear All Data", use_container_width=True):
+                # Clear all session state
+                for key in list(st.session_state.keys()):
+                    if key not in ['form_inputs', 'has_submitted', 'current_page', 'risk_analysis_result', 'payment_successful']:
+                        del st.session_state[key]
+                st.session_state['form_inputs'] = {
+                    'topic': '',
+                    'data_use': '',
+                    'scenario': '',
+                    'region_choice': 'EU',
+                    'custom_region': ''
+                }
+                st.session_state['has_submitted'] = False
+                st.session_state['current_page'] = 'main'
+                st.session_state['risk_analysis_result'] = None
+                st.session_state['payment_successful'] = False
+                st.rerun()
+        
+        with st.expander("❓ Help & Support"):
+            st.markdown("""
+            **Getting Started:**
+            1. Enter your AI use case
+            2. Describe data usage
+            3. Specify risk scenario
+            4. Select region
+            5. Run analysis
+            
+            **Pro Features:**
+            - Expert consultation
+            - Detailed reports
+            - Priority support
+            
+            **Contact:**
+            support@airiskassessor.com
+            """)
+        
+        # Footer
+        st.markdown("---")
+        st.markdown("""
+        <div style="text-align: center; color: #6b7280; font-size: 11px; padding: 8px 0;">
+            <p>AI Risk & Compliance Assessor</p>
+            <p>© 2024 Multi-Agent AI System</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+def _render_report_view_page():
+    """Render the report view page."""
+    st.markdown("## 📋 Report Viewer")
+    
+    if st.session_state.get('last_report_content'):
+        cached = st.session_state['last_report_content']
+        cached_mtime = st.session_state.get('last_report_mtime')
+        cached_topic = st.session_state.get('last_report_topic', 'ai_risk_report')
+        _render_report_view(cached, cached_topic, cached_mtime)
+    else:
+        st.error("No report available to view.")
+        if st.button("← Back to Analysis"):
+            st.session_state['current_page'] = 'main'
+            st.rerun()
+
 def _render_contact_page():
     """Render the human specialist contact page."""
     st.markdown("## 🎉 Welcome to Pro!")
@@ -882,18 +1099,55 @@ _global_scroll_to_top_component()
 
 # Main UI
 
+# Render the sidebar
+_render_sidebar()
+
 # Custom CSS for modern styling
 st.markdown("""
 <style>
+    /* Remove top padding and margins */
+    .main .block-container {
+        padding-top: 0.5rem !important;
+        padding-bottom: 0.5rem !important;
+        max-width: 100% !important;
+    }
+    
+    /* Remove extra spacing from headers */
+    .main h1, .main h2, .main h3 {
+        margin-top: 0.5rem !important;
+        margin-bottom: 0.5rem !important;
+    }
+    
+    /* Reduce spacing between elements */
+    .main .element-container {
+        margin-bottom: 0.5rem !important;
+    }
+    
     /* Force page to always start at top */
     html, body {
         scroll-behavior: smooth;
         scroll-padding-top: 0;
+        margin: 0;
+        padding: 0;
     }
     
-    /* Ensure main content starts at top */
-    .main .block-container {
-        padding-top: 1rem !important;
+    /* Keep sidebar toggle visible but hide other header elements */
+    .stApp > header {
+        visibility: visible;
+    }
+    
+    .stApp > header > div:first-child {
+        visibility: hidden;
+    }
+    
+    /* Ensure sidebar toggle button is visible */
+    .stApp > header button[title="View sidebar"] {
+        visibility: visible !important;
+        display: block !important;
+    }
+    
+    .stApp {
+        margin-top: 0px;
     }
     
     /* Force scroll position reset */
@@ -903,17 +1157,17 @@ st.markdown("""
     
     .main-header {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        padding: 2rem;
+        padding: 1rem;
         border-radius: 12px;
         color: white;
         text-align: center;
-        margin-bottom: 2rem;
+        margin-bottom: 1rem;
     }
     
     .risk-card {
         border-radius: 12px;
-        padding: 1.5rem;
-        margin: 1rem 0;
+        padding: 1rem;
+        margin: 0.5rem 0;
         box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
     }
     
@@ -933,6 +1187,48 @@ st.markdown("""
         transform: translateY(-1px);
         box-shadow: 0 4px 8px rgba(0,0,0,0.15);
     }
+    
+    /* Reduce spacing in forms */
+    .stForm {
+        margin-top: 0.5rem !important;
+    }
+    
+    /* Compact sidebar */
+    .css-1d391kg {
+        padding-top: 0.5rem !important;
+    }
+    
+    /* Ensure sidebar toggle button is always visible */
+    .stApp > header button[data-testid="stHeaderMenuButton"] {
+        visibility: visible !important;
+        display: block !important;
+        opacity: 1 !important;
+    }
+    
+    /* Sidebar toggle button styling */
+    .stApp > header button[title="View sidebar"],
+    .stApp > header button[title="Close sidebar"] {
+        visibility: visible !important;
+        display: block !important;
+        opacity: 1 !important;
+        z-index: 9999 !important;
+    }
+    
+    /* Ensure header is properly positioned */
+    .stApp > header {
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        z-index: 1000 !important;
+        background: white !important;
+        border-bottom: 1px solid #e5e7eb !important;
+    }
+    
+    /* Adjust main content to account for fixed header */
+    .main .block-container {
+        padding-top: 3rem !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -940,7 +1236,7 @@ st.markdown("""
 st.title("AI Risk & Compliance Assessor")
 st.caption("Enter your own scenario: use case, data use, and region – nothing is hard-coded.")
 
-# Navigation
+# Navigation (simplified since sidebar handles most navigation)
 if st.session_state['current_page'] != 'main':
     if st.button("← Back to Analysis", key="back_button"):
         st.session_state['current_page'] = 'main'
@@ -948,64 +1244,7 @@ if st.session_state['current_page'] != 'main':
 
 # Main page
 if st.session_state['current_page'] == 'main':
-    # Demo data button
-    col1, col2, col3 = st.columns([2, 1, 1])
-    with col1:
-        st.markdown("### AI Risk & Compliance Assessment")
-    with col2:
-        if st.button("🎯 Demo: High Risk", use_container_width=True):
-            st.session_state['form_inputs'] = {
-                'topic': 'Banking Customer Support Chatbot',
-                'data_use': 'Processes chat transcripts with PII; stores logs; fine-tunes on redacted data; handles sensitive financial information',
-                'scenario': 'Prompt injection leading to data exfiltration; potential for attackers to extract customer financial data through malicious prompts',
-                'region_choice': 'EU',
-                'custom_region': ''
-            }
-            st.rerun()
-    with col3:
-        if st.button("📊 Demo: Medium Risk", use_container_width=True):
-            st.session_state['form_inputs'] = {
-                'topic': 'E-commerce Recommendation Engine',
-                'data_use': 'Analyzes user browsing history and purchase patterns; stores behavioral data; personalizes product recommendations',
-                'scenario': 'Membership inference attacks on user data; potential privacy leakage through recommendation patterns',
-                'region_choice': 'USA',
-                'custom_region': ''
-            }
-            st.rerun()
-    
-    # Demo Pro Path button
-    if st.button("🚀 Demo: Complete Pro Upgrade Flow", use_container_width=True, type="primary"):
-        st.session_state['form_inputs'] = {
-            'topic': 'Healthcare AI Diagnostic Assistant',
-            'data_use': 'Processes patient medical records, lab results, and imaging data; stores PHI; provides diagnostic recommendations',
-            'scenario': 'Model hallucination in healthcare leading to misdiagnosis; data poisoning attacks compromising patient safety',
-            'region_choice': 'EU',
-            'custom_region': ''
-        }
-        # Auto-run risk analysis
-        risk_result = {
-            "risk_level": "HIGH",
-            "confidence_score": 92,
-            "reasoning": "Healthcare AI systems with direct patient impact present critical risks. Model hallucinations could lead to life-threatening misdiagnoses, while data poisoning could compromise patient safety across the entire system.",
-            "key_factors": [
-                "Life-critical medical decisions",
-                "Highly sensitive PHI data",
-                "Regulatory compliance requirements (HIPAA, GDPR)",
-                "Potential for catastrophic patient harm"
-            ],
-            "immediate_concerns": [
-                "Patient safety and liability exposure",
-                "Regulatory compliance violations",
-                "Medical malpractice risks",
-                "Data breach potential"
-            ]
-        }
-        st.session_state['risk_analysis_result'] = risk_result
-        st.session_state['current_scenario'] = st.session_state['form_inputs']['scenario']
-        st.session_state['current_topic'] = st.session_state['form_inputs']['topic']
-        st.session_state['current_data_use'] = st.session_state['form_inputs']['data_use']
-        st.session_state['current_region'] = st.session_state['form_inputs']['region_choice']
-        st.rerun()
+    st.markdown("### AI Risk & Compliance Assessment")
     
     with st.form("inputs"):
         topic = st.text_input(
@@ -1212,6 +1451,10 @@ elif st.session_state['current_page'] == 'upgrade':
 # Contact page
 elif st.session_state['current_page'] == 'contact':
     _render_contact_page()
+
+# Report view page
+elif st.session_state['current_page'] == 'report_view':
+    _render_report_view_page()
 
 # Full assessment page
 elif st.session_state['current_page'] == 'full_assessment':
