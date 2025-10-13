@@ -372,7 +372,7 @@ def _run_scenario_risk_analysis(scenario: str, topic: str) -> dict:
                 confidence_score = parsed_result.get('confidence_score', 75)  # Default to 75 if not provided
                 
                 # Determine risk level based on confidence score
-                if confidence_score > 85:
+                if confidence_score > 75:
                     risk_level = "HIGH"
                 elif confidence_score >= 55:
                     risk_level = "MEDIUM"
@@ -394,7 +394,7 @@ def _run_scenario_risk_analysis(scenario: str, topic: str) -> dict:
         confidence_match = re.search(r'confidence[:\s]*(\d+)', result_str.lower())
         if confidence_match:
             confidence_score = int(confidence_match.group(1))
-            if confidence_score > 85:
+            if confidence_score > 75:
                 risk_level = "HIGH"
             elif confidence_score >= 55:
                 risk_level = "MEDIUM"
@@ -500,14 +500,17 @@ def _render_risk_result(risk_data: dict):
         for concern in risk_data['immediate_concerns']:
             st.markdown(f"• {concern}")
     
-    # Show Pro upgrade suggestion for HIGH risk
-    if risk_data["risk_level"] == "HIGH":
+    # Show Pro upgrade suggestion for HIGH and MEDIUM risk
+    if risk_data["risk_level"] in ["HIGH", "MEDIUM"]:
         # Display the professional banner image
         try:
             st.image(_get_image_path("Abstract Technology Profile LinkedIn Banner.png"), use_container_width=True)
         except Exception as e:
             st.warning(f"Could not load banner image: {e}")
-            st.info("🚀 Upgrade to Pro for professional AI risk consultation")
+            if risk_data["risk_level"] == "HIGH":
+                st.info("🚀 Upgrade to Pro for professional AI risk consultation")
+            else:
+                st.info("💡 Consider upgrading to Pro for expert guidance on this risk scenario")
 
 def _render_upgrade_page():
     """Render the Pro upgrade page with payment form."""
@@ -1423,7 +1426,7 @@ if st.session_state['current_page'] == 'main':
                 st.rerun()
         
         with col2:
-            if risk_level == "HIGH":
+            if risk_level in ["HIGH", "MEDIUM"]:
                 if st.button("🚀 Upgrade to Pro", use_container_width=True, type="primary"):
                     st.session_state['current_page'] = 'upgrade'
                     st.rerun()
