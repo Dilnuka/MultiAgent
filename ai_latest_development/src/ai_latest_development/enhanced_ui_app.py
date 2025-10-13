@@ -240,6 +240,30 @@ def _md_to_pdf_bytes(markdown_text: str) -> bytes:
     buffer.close()
     return pdf_bytes
 
+def _get_image_path(image_filename: str) -> str:
+    """Get the correct path to an image file."""
+    # Try multiple possible paths in order of preference
+    possible_paths = [
+        # Absolute path
+        Path("C:/Users/Admin/Desktop/MultiAgent/images") / image_filename,
+        # Relative to current working directory
+        Path("images") / image_filename,
+        # Relative to ai_latest_development directory
+        Path("../../images") / image_filename,
+        # Relative to src directory
+        Path("../images") / image_filename,
+        # Relative to MultiAgent directory
+        Path("../../../images") / image_filename,
+    ]
+    
+    for image_path in possible_paths:
+        if image_path.exists():
+            return str(image_path)
+    
+    # If none of the paths work, return the first one (absolute path)
+    # This will cause an error but at least we know what path was attempted
+    return str(possible_paths[0])
+
 def _find_report_path() -> Path | None:
     """Try to locate report.md in common locations for both CLI and Streamlit runs."""
     candidates = []
@@ -342,20 +366,52 @@ def _run_scenario_risk_analysis(scenario: str, topic: str) -> dict:
             json_match = re.search(r'\{.*\}', result_str, re.DOTALL)
             if json_match:
                 json_str = json_match.group()
-                return json.loads(json_str)
+                parsed_result = json.loads(json_str)
+                
+                # Extract confidence score and determine risk level
+                confidence_score = parsed_result.get('confidence_score', 75)  # Default to 75 if not provided
+                
+                # Determine risk level based on confidence score
+                if confidence_score > 85:
+                    risk_level = "HIGH"
+                elif confidence_score >= 55:
+                    risk_level = "MEDIUM"
+                else:
+                    risk_level = "LOW"
+                
+                # Update the parsed result with the determined risk level
+                parsed_result['risk_level'] = risk_level
+                return parsed_result
         except json.JSONDecodeError:
             pass
         
-        # Fallback: create a structured response from the text
+        # Fallback: create a structured response from the text if JSON parsing fails
+        # This should rarely happen with proper LM Studio model output
         risk_level = "MEDIUM"  # Default
-        if any(word in result_str.lower() for word in ['high', 'critical', 'severe', 'urgent']):
-            risk_level = "HIGH"
-        elif any(word in result_str.lower() for word in ['low', 'minimal', 'minor']):
-            risk_level = "LOW"
+        confidence_score = 75  # Default confidence
+        
+        # Try to extract confidence score from text if possible
+        confidence_match = re.search(r'confidence[:\s]*(\d+)', result_str.lower())
+        if confidence_match:
+            confidence_score = int(confidence_match.group(1))
+            if confidence_score > 85:
+                risk_level = "HIGH"
+            elif confidence_score >= 55:
+                risk_level = "MEDIUM"
+            else:
+                risk_level = "LOW"
+        else:
+            # Fallback to text-based classification if no confidence score found
+            if any(word in result_str.lower() for word in ['high', 'critical', 'severe', 'urgent']):
+                risk_level = "HIGH"
+                confidence_score = 90
+            elif any(word in result_str.lower() for word in ['low', 'minimal', 'minor']):
+                risk_level = "LOW"
+                confidence_score = 30
         
         return {
             "risk_level": risk_level,
-            "confidence_score": 75,
+            "confidence_score": confidence_score,
             "reasoning": result_str[:200] + "..." if len(result_str) > 200 else result_str,
             "key_factors": ["AI system complexity", "Data sensitivity", "Regulatory requirements"],
             "immediate_concerns": ["System security", "Compliance obligations"]
@@ -447,7 +503,11 @@ def _render_risk_result(risk_data: dict):
     # Show Pro upgrade suggestion for HIGH risk
     if risk_data["risk_level"] == "HIGH":
         # Display the professional banner image
-        st.image("../images/Abstract Technology Profile LinkedIn Banner.png", use_container_width=True)
+        try:
+            st.image(_get_image_path("Abstract Technology Profile LinkedIn Banner.png"), use_container_width=True)
+        except Exception as e:
+            st.warning(f"Could not load banner image: {e}")
+            st.info("🚀 Upgrade to Pro for professional AI risk consultation")
 
 def _render_upgrade_page():
     """Render the Pro upgrade page with payment form."""
@@ -460,7 +520,11 @@ def _render_upgrade_page():
         st.rerun()
     
     # Display the Pro Risk Analysis banner image directly
-    st.image("../images/Black and Gray Minimalist Shapes Personal Profile LinkedIn Banner (1).png", use_container_width=True)
+    try:
+        st.image(_get_image_path("Black and Gray Minimalist Shapes Personal Profile LinkedIn Banner (1).png"), use_container_width=True)
+    except Exception as e:
+        st.warning(f"Could not load banner image: {e}")
+        st.info("Professional AI Risk Analysis Services")
     
     col1, col2 = st.columns([2, 1])
     
@@ -846,70 +910,6 @@ def _render_sidebar():
         
         st.markdown("---")
         
-        # Quick Actions
-        st.markdown("### ⚡ Quick Actions")
-        
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("🎯 High Risk Demo", use_container_width=True):
-                st.session_state['form_inputs'] = {
-                    'topic': 'Banking Customer Support Chatbot',
-                    'data_use': 'Processes chat transcripts with PII; stores logs; fine-tunes on redacted data; handles sensitive financial information',
-                    'scenario': 'Prompt injection leading to data exfiltration; potential for attackers to extract customer financial data through malicious prompts',
-                    'region_choice': 'EU',
-                    'custom_region': ''
-                }
-                st.session_state['current_page'] = 'main'
-                st.rerun()
-        
-        with col2:
-            if st.button("📊 Medium Risk Demo", use_container_width=True):
-                st.session_state['form_inputs'] = {
-                    'topic': 'E-commerce Recommendation Engine',
-                    'data_use': 'Analyzes user browsing history and purchase patterns; stores behavioral data; personalizes product recommendations',
-                    'scenario': 'Membership inference attacks on user data; potential privacy leakage through recommendation patterns',
-                    'region_choice': 'USA',
-                    'custom_region': ''
-                }
-                st.session_state['current_page'] = 'main'
-                st.rerun()
-        
-        if st.button("🚀 Complete Pro Flow Demo", use_container_width=True):
-            st.session_state['form_inputs'] = {
-                'topic': 'Healthcare AI Diagnostic Assistant',
-                'data_use': 'Processes patient medical records, lab results, and imaging data; stores PHI; provides diagnostic recommendations',
-                'scenario': 'Model hallucination in healthcare leading to misdiagnosis; data poisoning attacks compromising patient safety',
-                'region_choice': 'EU',
-                'custom_region': ''
-            }
-            # Auto-run risk analysis
-            risk_result = {
-                "risk_level": "HIGH",
-                "confidence_score": 92,
-                "reasoning": "Healthcare AI systems with direct patient impact present critical risks. Model hallucinations could lead to life-threatening misdiagnoses, while data poisoning could compromise patient safety across the entire system.",
-                "key_factors": [
-                    "Life-critical medical decisions",
-                    "Highly sensitive PHI data",
-                    "Regulatory compliance requirements (HIPAA, GDPR)",
-                    "Potential for catastrophic patient harm"
-                ],
-                "immediate_concerns": [
-                    "Patient safety and liability exposure",
-                    "Regulatory compliance violations",
-                    "Medical malpractice risks",
-                    "Data breach potential"
-                ]
-            }
-            st.session_state['risk_analysis_result'] = risk_result
-            st.session_state['current_scenario'] = st.session_state['form_inputs']['scenario']
-            st.session_state['current_topic'] = st.session_state['form_inputs']['topic']
-            st.session_state['current_data_use'] = st.session_state['form_inputs']['data_use']
-            st.session_state['current_region'] = st.session_state['form_inputs']['region_choice']
-            st.session_state['current_page'] = 'main'
-            st.rerun()
-        
-        st.markdown("---")
-        
         # Settings and Help
         st.markdown("### ⚙️ Settings")
         
@@ -980,7 +980,11 @@ def _render_contact_page():
     st.markdown("Your payment was successful. Here's how to connect with your AI risk specialist:")
     
     # Display the Payment Successful banner image directly
-    st.image("../images/Blue Futuristic Technology LinkedIn Background Photo.png", use_container_width=True)
+    try:
+        st.image(_get_image_path("Blue Futuristic Technology LinkedIn Background Photo.png"), use_container_width=True)
+    except Exception as e:
+        st.warning(f"Could not load banner image: {e}")
+        st.info("🎉 Welcome to Pro!")
     
     col1, col2 = st.columns(2)
     
