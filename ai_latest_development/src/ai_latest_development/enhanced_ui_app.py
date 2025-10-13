@@ -447,7 +447,7 @@ def _render_risk_result(risk_data: dict):
     # Show Pro upgrade suggestion for HIGH risk
     if risk_data["risk_level"] == "HIGH":
         # Display the professional banner image
-        st.image("../images/Abstract Technology Profile LinkedIn Banner.png", use_container_width=True)
+        st.image("../img/Abstract Technology Profile LinkedIn Banner.png", use_container_width=True)
 
 def _render_upgrade_page():
     """Render the Pro upgrade page with payment form."""
@@ -460,7 +460,7 @@ def _render_upgrade_page():
         st.rerun()
     
     # Display the Pro Risk Analysis banner image directly
-    st.image("../images/Black and Gray Minimalist Shapes Personal Profile LinkedIn Banner (1).png", use_container_width=True)
+    st.image("../img/Black and Gray Minimalist Shapes Personal Profile LinkedIn Banner (1).png", use_container_width=True)
     
     col1, col2 = st.columns([2, 1])
     
@@ -980,7 +980,7 @@ def _render_contact_page():
     st.markdown("Your payment was successful. Here's how to connect with your AI risk specialist:")
     
     # Display the Payment Successful banner image directly
-    st.image("../images/Blue Futuristic Technology LinkedIn Background Photo.png", use_container_width=True)
+    st.image("../img/Blue Futuristic Technology LinkedIn Background Photo.png", use_container_width=True)
     
     col1, col2 = st.columns(2)
     
