@@ -4,6 +4,7 @@ from pathlib import Path
 from datetime import datetime
 import time
 from io import BytesIO
+import random
 
 import streamlit as st
 
@@ -30,6 +31,61 @@ try:
     REPORTLAB_AVAILABLE = True
 except Exception:
     REPORTLAB_AVAILABLE = False
+
+def _clean_report_content(text: str) -> str:
+    """Clean report content by removing duplicate sections and AI artifacts."""
+    if not text:
+        return text
+    
+    # Split the text into lines for easier processing
+    lines = text.splitlines()
+    cleaned_lines = []
+    seen_content = set()
+    
+    i = 0
+    while i < len(lines):
+        line = lines[i].strip()
+        
+        # Skip empty lines
+        if not line:
+            # Only add empty lines if we have content before them
+            if cleaned_lines and cleaned_lines[-1].strip():
+                cleaned_lines.append(lines[i])
+            i += 1
+            continue
+            
+        # Check if this is a header line
+        is_header = line.startswith('#') or (line.startswith('##') and len(line) > 1)
+        
+        # For non-header lines, check if we've seen similar content
+        if not is_header:
+            # Create a normalized version for comparison (remove extra whitespace, lowercase)
+            normalized = ' '.join(line.split()).lower()
+            
+            # If we haven't seen this content before, add it
+            if normalized not in seen_content:
+                seen_content.add(normalized)
+                cleaned_lines.append(lines[i])
+            # If we have seen it, skip it (it's a duplicate)
+        else:
+            # For headers, always add them but check for duplicates
+            header_key = line.lower()
+            if header_key not in seen_content:
+                seen_content.add(header_key)
+                cleaned_lines.append(lines[i])
+            # If duplicate header, skip it
+        
+        i += 1
+    
+    # Join the cleaned lines back together
+    cleaned_text = '\n'.join(cleaned_lines)
+    
+    # Additional cleaning: remove excessive whitespace
+    import re
+    # Replace multiple consecutive newlines with just two
+    cleaned_text = re.sub(r'\n{3,}', '\n\n', cleaned_text)
+    
+    return cleaned_text
 
 def _md_to_pdf_bytes(markdown_text: str) -> bytes:
     """Convert markdown text to formatted PDF using ReportLab's Platypus for better rendering."""
@@ -178,7 +234,10 @@ def _find_report_path() -> Path | None:
 
 def _render_report_view(text: str, topic_for_filename: str, mtime: float | None = None):
     """Render the report in read-only review mode with a PDF download button."""
-    word_count = len(text.split()) if text else 0
+    # Clean the report content to remove duplicates
+    cleaned_text = _clean_report_content(text)
+    
+    word_count = len(cleaned_text.split()) if cleaned_text else 0
     if mtime:
         ts = datetime.fromtimestamp(mtime).strftime('%Y-%m-%d %H:%M:%S')
         st.info(f"📊 Report generated: {word_count} words (last modified: {ts})")
@@ -186,16 +245,16 @@ def _render_report_view(text: str, topic_for_filename: str, mtime: float | None 
         st.info(f"📊 Report generated: {word_count} words")
     st.caption(f"Words: {word_count}")
     st.markdown("### 📋 Report")
-    st.markdown(text)
+    st.markdown(cleaned_text)
     if REPORTLAB_AVAILABLE:
         try:
-            pdf_bytes = _md_to_pdf_bytes(text)
+            pdf_bytes = _md_to_pdf_bytes(cleaned_text)
             st.download_button(
                 label="📄 Download Report (PDF)",
                 data=pdf_bytes,
                 file_name=f"ai_risk_report_{topic_for_filename.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d')}.pdf",
                 mime="application/pdf",
-                key=f"download_{int(time.time())}"  # Unique key to avoid conflicts
+                key=f"download_{int(time.time())}_{random.randint(1000, 9999)}"  # Unique key combining timestamp and random number
             )
         except Exception as e:
             st.error(f"Failed to generate PDF: {e}")
@@ -206,9 +265,13 @@ def _display_cached_report():
     """Display report from session state or disk if available."""
     if 'last_report_content' in st.session_state:
         cached = st.session_state['last_report_content']
+        # Clean the cached report content
+        cleaned_cached = _clean_report_content(cached)
+        # Update the session state with cleaned content
+        st.session_state['last_report_content'] = cleaned_cached
         cached_mtime = st.session_state.get('last_report_mtime')
         cached_topic = st.session_state.get('last_report_topic', 'ai_risk_report')
-        _render_report_view(cached, cached_topic, cached_mtime)
+        _render_report_view(cleaned_cached, cached_topic, cached_mtime)
         return True
     else:
         rp_obj = _find_report_path()
@@ -218,11 +281,13 @@ def _display_cached_report():
                 mtime = os.path.getmtime(report_path)
                 with open(report_path, 'r', encoding='utf-8', errors='ignore') as f:
                     content = f.read()
+                # Clean the report content
+                cleaned_content = _clean_report_content(content)
                 # Persist to session state
-                st.session_state['last_report_content'] = content
+                st.session_state['last_report_content'] = cleaned_content
                 st.session_state['last_report_mtime'] = mtime
                 st.session_state['last_report_topic'] = 'ai_risk_report'
-                _render_report_view(content, 'ai_risk_report', mtime)
+                _render_report_view(cleaned_content, 'ai_risk_report', mtime)
                 return True
             except Exception as e:
                 st.error(f"Could not read report.md: {e}")
@@ -336,26 +401,32 @@ if submitted:
                         mtime = os.path.getmtime(report_path)
                         with open(report_path, 'r', encoding='utf-8', errors='ignore') as f:
                             content = f.read()
-                        st.session_state['last_report_content'] = content
+                        # Clean the report content
+                        cleaned_content = _clean_report_content(content)
+                        st.session_state['last_report_content'] = cleaned_content
                         st.session_state['last_report_mtime'] = mtime
                         st.session_state['last_report_topic'] = topic.strip()
                         st.subheader("Output")
-                        _render_report_view(content, topic.strip(), mtime)
+                        _render_report_view(cleaned_content, topic.strip(), mtime)
                     except Exception as e:
                         st.error(f"Could not read report.md: {e}")
                         content = str(result)
-                        st.session_state['last_report_content'] = content
+                        # Clean the content
+                        cleaned_content = _clean_report_content(content)
+                        st.session_state['last_report_content'] = cleaned_content
                         st.session_state['last_report_mtime'] = time.time()
                         st.session_state['last_report_topic'] = topic.strip()
                         st.subheader("Output")
-                        _render_report_view(content, topic.strip())
+                        _render_report_view(cleaned_content, topic.strip())
                 else:
                     content = str(result)
-                    st.session_state['last_report_content'] = content
+                    # Clean the content
+                    cleaned_content = _clean_report_content(content)
+                    st.session_state['last_report_content'] = cleaned_content
                     st.session_state['last_report_mtime'] = time.time()
                     st.session_state['last_report_topic'] = topic.strip()
                     st.subheader("Output")
-                    _render_report_view(content, topic.strip())
+                    _render_report_view(cleaned_content, topic.strip())
             except litellm.RateLimitError as e:
                 st.subheader("Output")
                 retry_delay = float(e.args[0].split("Please retry in ")[1].split("s")[0]) if "Please retry in " in str(e) else 60
