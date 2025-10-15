@@ -504,7 +504,7 @@ def _render_risk_result(risk_data: dict):
     if risk_data["risk_level"] in ["HIGH", "MEDIUM"]:
         # Display the professional banner image
         try:
-            st.image(_get_image_path("Abstract Technology Profile LinkedIn Banner.png"), use_container_width=True)
+            st.image(_get_image_path("Abstract Technology Profile LinkedIn Banner.png"))
         except Exception as e:
             st.warning(f"Could not load banner image: {e}")
             if risk_data["risk_level"] == "HIGH":
@@ -524,7 +524,7 @@ def _render_upgrade_page():
     
     # Display the Pro Risk Analysis banner image directly
     try:
-        st.image(_get_image_path("Black and Gray Minimalist Shapes Personal Profile LinkedIn Banner (1).png"), use_container_width=True)
+        st.image(_get_image_path("Black and Gray Minimalist Shapes Personal Profile LinkedIn Banner (1).png"))
     except Exception as e:
         st.warning(f"Could not load banner image: {e}")
         st.info("Professional AI Risk Analysis Services")
@@ -984,7 +984,7 @@ def _render_contact_page():
     
     # Display the Payment Successful banner image directly
     try:
-        st.image(_get_image_path("Blue Futuristic Technology LinkedIn Background Photo.png"), use_container_width=True)
+        st.image(_get_image_path("Blue Futuristic Technology LinkedIn Background Photo.png"))
     except Exception as e:
         st.warning(f"Could not load banner image: {e}")
         st.info("🎉 Welcome to Pro!")
