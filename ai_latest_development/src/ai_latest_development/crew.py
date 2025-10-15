@@ -13,15 +13,15 @@ except Exception:  # Allows running as a script without package context
 # you can use the @before_kickoff and @after_kickoff decorators
 # https://docs.crewai.com/concepts/crews#example-crew-class-with-decorators
 
-class GeminiLLM:
-    """Custom Gemini LLM wrapper for CrewAI"""
-    
-    def __init__(self, model="gemini/gemini-2.0-flash-lite-001", api_key=None):
+class OpenAILLM:
+    """Custom OpenAI LLM wrapper for CrewAI"""
+
+    def __init__(self, model="gpt-4o-mini", api_key=None):
         self.model = model
-        self.api_key = api_key or os.getenv("GEMINI_API_KEY")
-        
+        self.api_key = api_key or os.getenv("OPENAI_API_KEY")
+
     def call(self, prompt, **kwargs):
-        """Call the Gemini API using litellm"""
+        """Call the OpenAI API using litellm"""
         try:
             response = litellm.completion(
                 model=self.model,
@@ -31,7 +31,7 @@ class GeminiLLM:
             )
             return response.choices[0].message.content
         except Exception as e:
-            raise Exception(f"Error calling Gemini API: {e}")
+            raise Exception(f"Error calling OpenAI API: {e}")
 
 @CrewBase
 class AiLatestDevelopment():
@@ -48,9 +48,9 @@ class AiLatestDevelopment():
     # https://docs.crewai.com/concepts/agents#agent-tools
     @agent
     def ai_risk_assessment_analyst(self) -> Agent:
-        llm = GeminiLLM(
-            model="gemini/gemini-2.0-flash-lite-001",
-            api_key=os.getenv("GEMINI_API_KEY")
+        llm = OpenAILLM(
+            model="gpt-4o-mini",
+            api_key=os.getenv("OPENAI_API_KEY")
         )
         return Agent(
             config=self.agents_config['ai_risk_assessment_analyst'], # type: ignore[index]
@@ -60,9 +60,9 @@ class AiLatestDevelopment():
 
     @agent
     def ai_compliance_researcher(self) -> Agent:
-        llm = GeminiLLM(
-            model="gemini/gemini-2.0-flash-lite-001",
-            api_key=os.getenv("GEMINI_API_KEY")
+        llm = OpenAILLM(
+            model="gpt-4o-mini",
+            api_key=os.getenv("OPENAI_API_KEY")
         )
         return Agent(
             config=self.agents_config['ai_compliance_researcher'], # type: ignore[index]
@@ -73,9 +73,9 @@ class AiLatestDevelopment():
 
     @agent
     def data_privacy_security_specialist(self) -> Agent:
-        llm = GeminiLLM(
-            model="gemini/gemini-2.0-flash-lite-001",
-            api_key=os.getenv("GEMINI_API_KEY")
+        llm = OpenAILLM(
+            model="gpt-4o-mini",
+            api_key=os.getenv("OPENAI_API_KEY")
         )
         return Agent(
             config=self.agents_config['data_privacy_security_specialist'], # type: ignore[index]
@@ -86,9 +86,9 @@ class AiLatestDevelopment():
 
     @agent
     def risk_report_generator(self) -> Agent:
-        llm = GeminiLLM(
-            model="gemini/gemini-2.0-flash-lite-001",
-            api_key=os.getenv("GEMINI_API_KEY")
+        llm = OpenAILLM(
+            model="gpt-4o-mini",
+            api_key=os.getenv("OPENAI_API_KEY")
         )
         return Agent(
             config=self.agents_config['risk_report_generator'], # type: ignore[index]

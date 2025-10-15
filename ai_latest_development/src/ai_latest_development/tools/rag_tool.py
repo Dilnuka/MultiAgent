@@ -18,10 +18,10 @@ except Exception:
     PdfReader = None
 
 
-class GeminiEmbeddingFunction(embedding_functions.EmbeddingFunction):
-    """Embedding function adapter for Chroma using Gemini embeddings."""
+class OpenAIEmbeddingFunction(embedding_functions.EmbeddingFunction):
+    """Embedding function adapter for Chroma using OpenAI embeddings."""
 
-    def __init__(self, model: str = "text-embedding-004", api_key_env: str = "GEMINI_API_KEY"):
+    def __init__(self, model: str = "text-embedding-3-small", api_key_env: str = "OPENAI_API_KEY"):
         self.model = model
         self.api_key_env = api_key_env
         self._configured = False
@@ -29,31 +29,24 @@ class GeminiEmbeddingFunction(embedding_functions.EmbeddingFunction):
     def _ensure_configured(self) -> None:
         if self._configured:
             return
-        api_key = os.getenv(self.api_key_env) or os.getenv("GOOGLE_API_KEY")
-        if genai is None:
-            raise RuntimeError("google-generativeai is not installed. Please add it to dependencies.")
+        api_key = os.getenv(self.api_key_env)
         if not api_key:
-            raise RuntimeError("GEMINI_API_KEY or GOOGLE_API_KEY not set in environment.")
-        genai.configure(api_key=api_key)
+            raise RuntimeError("OPENAI_API_KEY not set in environment.")
+        self.api_key = api_key
         self._configured = True
 
     def __call__(self, texts: List[str]) -> List[List[float]]:
         self._ensure_configured()
+        import openai
+        client = openai.OpenAI(api_key=self.api_key)
         vectors: List[List[float]] = []
         for t in texts:
             try:
-                resp = genai.embed_content(model=self.model, content=t)
-                if isinstance(resp, dict) and "embedding" in resp:
-                    vectors.append(resp["embedding"])  # type: ignore[arg-type]
-                elif hasattr(resp, "embedding"):
-                    vectors.append(getattr(resp, "embedding"))
-                elif hasattr(resp, "embeddings") and resp.embeddings:  # type: ignore[attr-defined]
-                    vectors.append(resp.embeddings[0].values)  # type: ignore[attr-defined]
-                else:
-                    # Fallback to zero vector of 768 dims
-                    vectors.append([0.0] * 768)
+                resp = client.embeddings.create(input=t, model=self.model)
+                vectors.append(resp.data[0].embedding)
             except Exception:
-                vectors.append([0.0] * 768)
+                # Fallback to zero vector of 1536 dims for text-embedding-3-small
+                vectors.append([0.0] * 1536)
         return vectors
 
 
@@ -83,13 +76,13 @@ def _chunk_text(text: str, chunk_size: int = 1200, overlap: int = 200) -> List[s
 
 
 class RAGIndex:
-    """Simple persistent RAG index using Chroma and Gemini embeddings."""
+    """Simple persistent RAG index using Chroma and OpenAI embeddings."""
 
     def __init__(self, data_dir: Path, index_dir: Path):
         self.data_dir = data_dir
         self.index_dir = index_dir
         self.client = chromadb.PersistentClient(path=str(self.index_dir))
-        self.embedding_fn = GeminiEmbeddingFunction()
+        self.embedding_fn = OpenAIEmbeddingFunction()
         self.collection = self.client.get_or_create_collection(
             name="ai_rules",
             embedding_function=self.embedding_fn,
