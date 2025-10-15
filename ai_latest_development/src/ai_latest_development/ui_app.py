@@ -1,13 +1,13 @@
 import os
-import litellm  # Added to handle RateLimitError
+import litellm
 from pathlib import Path
 from datetime import datetime
 import time
 from io import BytesIO
-
 import streamlit as st
 
-# Load .env early so downstream imports see GEMINI_API_KEY
+# --- Environment and Dependencies Setup ---
+# Load .env early
 try:
     from dotenv import load_dotenv
     env_path = Path(__file__).parent.parent.parent / '.env'
@@ -17,7 +17,7 @@ except Exception:
 
 try:
     from .crew import AiLatestDevelopment
-except Exception:
+except ImportError:
     from crew import AiLatestDevelopment
 
 # Optional PDF support via reportlab
@@ -28,9 +28,11 @@ try:
     from reportlab.lib import colors
     from reportlab.lib.units import mm
     REPORTLAB_AVAILABLE = True
-except Exception:
+except ImportError:
     REPORTLAB_AVAILABLE = False
 
+# --- Core Backend Functions (Unchanged) ---
+# Note: All your backend logic for PDF generation and file handling remains the same.
 def _md_to_pdf_bytes(markdown_text: str) -> bytes:
     """Convert markdown text to formatted PDF using ReportLab's Platypus for better rendering."""
     if not REPORTLAB_AVAILABLE:
@@ -71,7 +73,7 @@ def _md_to_pdf_bytes(markdown_text: str) -> bytes:
             while level < len(line) and line[level] == '#':
                 level += 1
             text = parse_bold(line[level:].strip())
-            heading_style = 'Heading' + str(min(level, 6))  # Up to Heading6
+            heading_style = 'Heading' + str(min(level, 6))
             if heading_style in styles:
                 flowables.append(Paragraph(text, styles[heading_style]))
             else:
@@ -160,9 +162,8 @@ def _md_to_pdf_bytes(markdown_text: str) -> bytes:
     return pdf_bytes
 
 def _find_report_path() -> Path | None:
-    """Try to locate report.md in common locations for both CLI and Streamlit runs."""
-    candidates = []
-    candidates.append(Path.cwd() / 'report.md')
+    """Try to locate report.md in common locations."""
+    candidates = [Path.cwd() / 'report.md']
     here = Path(__file__).resolve()
     parents = list(here.parents)
     for idx in (2, 3, 4):
@@ -176,142 +177,197 @@ def _find_report_path() -> Path | None:
             continue
     return None
 
+# --- UI Helper Functions ---
+def apply_modern_styles():
+    """Injects custom CSS for a modern, dark-themed UI."""
+    custom_css = """
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        
+        /* Main app styling */
+        .stApp {
+            background-color: #1a1a2e;
+            color: #e0e0e0;
+        }
+        
+        /* Sidebar styling */
+        .st-emotion-cache-16txtl3 {
+            background-color: #162447;
+            border-right: 1px solid #2c3e50;
+        }
+        
+        /* Card-like containers for output */
+        .report-container {
+            background-color: #1f4068;
+            padding: 2rem;
+            border-radius: 10px;
+            border: 1px solid #2c3e50;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+        
+        /* Button styling */
+        .stButton>button {
+            border-radius: 8px;
+            background-color: #1b98e0;
+            color: white;
+            border: none;
+            font-weight: 600;
+        }
+        .stButton>button:hover {
+            background-color: #157ab3;
+            color: white;
+            border: none;
+        }
+        
+        /* Expander styling */
+        .stExpander {
+            background-color: #162447;
+            border-radius: 8px;
+        }
+        
+        /* Headings */
+        h1, h2, h3 {
+            color: #e43f5a;
+        }
+    </style>
+    """
+    st.markdown(custom_css, unsafe_allow_html=True)
+
 def _render_report_view(text: str, topic_for_filename: str, mtime: float | None = None):
-    """Render the report in read-only review mode with a PDF download button."""
-    word_count = len(text.split()) if text else 0
-    if mtime:
-        ts = datetime.fromtimestamp(mtime).strftime('%Y-%m-%d %H:%M:%S')
-        st.info(f"📊 Report generated: {word_count} words (last modified: {ts})")
-    else:
-        st.info(f"📊 Report generated: {word_count} words")
-    st.caption(f"Words: {word_count}")
-    st.markdown("### 📋 Report")
-    st.markdown(text)
-    if REPORTLAB_AVAILABLE:
-        try:
-            pdf_bytes = _md_to_pdf_bytes(text)
-            st.download_button(
-                label="📄 Download Report (PDF)",
-                data=pdf_bytes,
-                file_name=f"ai_risk_report_{topic_for_filename.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d')}.pdf",
-                mime="application/pdf",
-                key=f"download_{int(time.time())}"  # Unique key to avoid conflicts
-            )
-        except Exception as e:
-            st.error(f"Failed to generate PDF: {e}")
-    else:
-        st.info("PDF download requires the 'reportlab' package. Install it with: pip install reportlab")
+    """Render the report in a styled container."""
+    with st.container(border=False):
+        word_count = len(text.split()) if text else 0
+        if mtime:
+            ts = datetime.fromtimestamp(mtime).strftime('%Y-%m-%d %H:%M:%S')
+            st.info(f"📊 Report generated with {word_count} words (last modified: {ts})")
+        else:
+            st.info(f"📊 Report generated with {word_count} words")
+        
+        st.markdown(f"### 📋 Report: {topic_for_filename}")
+        st.markdown("---")
+        st.markdown(text)
+        
+        if REPORTLAB_AVAILABLE:
+            try:
+                pdf_bytes = _md_to_pdf_bytes(text)
+                st.download_button(
+                    label="📄 Download as PDF",
+                    data=pdf_bytes,
+                    file_name=f"ai_risk_report_{topic_for_filename.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d')}.pdf",
+                    mime="application/pdf",
+                    key=f"download_{int(time.time())}",
+                    use_container_width=True
+                )
+            except Exception as e:
+                st.error(f"Failed to generate PDF: {e}")
+        else:
+            st.warning("PDF download requires 'reportlab'. Install it with: `pip install reportlab`")
 
 def _display_cached_report():
-    """Display report from session state or disk if available."""
+    """Display cached report from session state or disk."""
     if 'last_report_content' in st.session_state:
-        cached = st.session_state['last_report_content']
+        cached_content = st.session_state['last_report_content']
         cached_mtime = st.session_state.get('last_report_mtime')
         cached_topic = st.session_state.get('last_report_topic', 'ai_risk_report')
-        _render_report_view(cached, cached_topic, cached_mtime)
+        _render_report_view(cached_content, cached_topic, cached_mtime)
         return True
-    else:
-        rp_obj = _find_report_path()
-        if rp_obj and rp_obj.exists():
-            try:
-                report_path = str(rp_obj.resolve())
-                mtime = os.path.getmtime(report_path)
-                with open(report_path, 'r', encoding='utf-8', errors='ignore') as f:
-                    content = f.read()
-                # Persist to session state
-                st.session_state['last_report_content'] = content
-                st.session_state['last_report_mtime'] = mtime
-                st.session_state['last_report_topic'] = 'ai_risk_report'
-                _render_report_view(content, 'ai_risk_report', mtime)
-                return True
-            except Exception as e:
-                st.error(f"Could not read report.md: {e}")
+    
+    rp_obj = _find_report_path()
+    if rp_obj and rp_obj.exists():
+        try:
+            report_path = str(rp_obj.resolve())
+            mtime = os.path.getmtime(report_path)
+            with open(report_path, 'r', encoding='utf-8', errors='ignore') as f:
+                content = f.read()
+            # Persist to session state
+            st.session_state['last_report_content'] = content
+            st.session_state['last_report_mtime'] = mtime
+            st.session_state['last_report_topic'] = 'ai_risk_report' # Default topic for file-based report
+            _render_report_view(content, 'ai_risk_report', mtime)
+            return True
+        except Exception as e:
+            st.error(f"Could not read report.md: {e}")
     return False
 
-# Initialize session state for form inputs and submission status
+# --- Streamlit App UI ---
+st.set_page_config(page_title="AI Risk Assessor", layout="wide", page_icon="🤖")
+apply_modern_styles()
+
+# Initialize session state
 if 'form_inputs' not in st.session_state:
-    st.session_state['form_inputs'] = {
-        'topic': '',
-        'data_use': '',
-        'scenario': '',
-        'region_choice': 'EU',
-        'custom_region': ''
-    }
+    st.session_state['form_inputs'] = {'topic': '', 'data_use': '', 'scenario': '', 'region_choice': 'EU', 'custom_region': ''}
 if 'has_submitted' not in st.session_state:
     st.session_state['has_submitted'] = False
 
-# UI header and input form
-st.set_page_config(page_title="AI Risk & Compliance Assessor", layout="wide")
-st.title("AI Risk & Compliance Assessor")
-st.caption("Enter your own scenario: use case, data use, and region – nothing is hard-coded.")
+# --- Sidebar for Inputs ---
+with st.sidebar:
+    st.header("📝 Assessment Inputs")
+    st.caption("Enter your scenario details below to generate a risk and compliance report.")
 
-with st.form("inputs"):
-    topic = st.text_input(
-        "Use case / System name",
-        value=st.session_state['form_inputs']['topic'],
-        placeholder="e.g., Customer support chatbot for banking"
-    )
-    data_use = st.text_area(
-        "Describe your data use",
-        value=st.session_state['form_inputs']['data_use'],
-        placeholder="e.g., Processes chat transcripts with PII; stores logs; fine-tunes on redacted data",
-        height=150
-    )
-    scenario = st.text_area(
-        "Risk scenario to analyze",
-        value=st.session_state['form_inputs']['scenario'],
-        placeholder="e.g., Prompt injection leading to data exfiltration; membership inference on logs; model hallucination in healthcare",
-        height=120
-    )
-    region_choice = st.selectbox(
-        "Target region for regulatory analysis",
-        ["EU", "USA", "Canada", "UK", "Global", "Custom..."],
-        index=["EU", "USA", "Canada", "UK", "Global", "Custom..."].index(st.session_state['form_inputs']['region_choice'])
-    )
-    custom_region = ""
-    if region_choice == "Custom...":
-        custom_region = st.text_input(
-            "Custom region or jurisdiction",
-            value=st.session_state['form_inputs']['custom_region'],
-            placeholder="e.g., Singapore, Australia (Health), California, Global Finance"
+    with st.form("inputs_form"):
+        topic = st.text_input(
+            "Use Case / System Name",
+            value=st.session_state['form_inputs']['topic'],
+            placeholder="e.g., Customer support chatbot"
         )
-    submitted = st.form_submit_button("Run Assessment")
+        data_use = st.text_area(
+            "Describe Data Use",
+            value=st.session_state['form_inputs']['data_use'],
+            placeholder="e.g., Processes chat transcripts with PII...",
+            height=120
+        )
+        scenario = st.text_area(
+            "Risk Scenario to Analyze",
+            value=st.session_state['form_inputs']['scenario'],
+            placeholder="e.g., Prompt injection, data exfiltration...",
+            height=100
+        )
+        region_choice = st.selectbox(
+            "Target Region",
+            ["EU", "USA", "Canada", "UK", "Global", "Custom..."],
+            index=["EU", "USA", "Canada", "UK", "Global", "Custom..."].index(st.session_state['form_inputs']['region_choice'])
+        )
+        custom_region = ""
+        if region_choice == "Custom...":
+            custom_region = st.text_input(
+                "Custom Jurisdiction",
+                value=st.session_state['form_inputs']['custom_region'],
+                placeholder="e.g., Singapore, California"
+            )
+        
+        submitted = st.form_submit_button("🚀 Run Assessment", use_container_width=True, type="primary")
 
-# Update form inputs in session state
-if submitted:
-    st.session_state['form_inputs'] = {
-        'topic': topic,
-        'data_use': data_use,
-        'scenario': scenario,
-        'region_choice': region_choice,
-        'custom_region': custom_region
-    }
+# --- Main Content Area ---
+st.title("🤖 AI Risk & Compliance Assessor")
 
-# Form submission
+# Main container for output
+output_container = st.container()
+output_container.markdown('<div class="report-container">', unsafe_allow_html=True)
+
 if submitted:
-    # Resolve region
+    st.session_state['form_inputs'].update({
+        'topic': topic, 'data_use': data_use, 'scenario': scenario,
+        'region_choice': region_choice, 'custom_region': custom_region
+    })
+    
     region = custom_region.strip() if region_choice == "Custom..." else region_choice
-
-    # Basic validation
-    errors = []
-    if not topic.strip():
-        errors.append("Please enter a use case / system name.")
-    if not data_use.strip():
-        errors.append("Please describe your data use.")
-    if not region.strip():
-        errors.append("Please select or enter a region.")
-    if not scenario.strip():
-        errors.append("Please enter a risk scenario to analyze.")
-
+    errors = [msg for field, msg in [
+        (topic, "Please enter a use case / system name."),
+        (data_use, "Please describe your data use."),
+        (region, "Please select or enter a region."),
+        (scenario, "Please enter a risk scenario to analyze.")
+    ] if not field.strip()]
+    
     if errors:
-        st.subheader("Output")
-        for msg in errors:
-            st.warning(msg)
-        # Still display cached report if it exists
-        if st.session_state['has_submitted']:
-            _display_cached_report()
+        with output_container:
+            for msg in errors:
+                st.warning(msg)
     else:
-        st.session_state['has_submitted'] = True  # Mark as submitted
+        st.session_state['has_submitted'] = True
         inputs = {
             'topic': topic.strip(),
             'current_year': str(datetime.now().year),
@@ -319,81 +375,67 @@ if submitted:
             'data_use': data_use.strip(),
             'scenario': scenario.strip(),
         }
-        os.environ['REGION'] = region
-        os.environ['DATA_USE'] = data_use
-        os.environ['SCENARIO'] = scenario
-
+        os.environ.update({'REGION': region, 'DATA_USE': data_use, 'SCENARIO': scenario})
+        
         run_started_at = time.time()
-        with st.spinner("Running multi-agent assessment... this can take a few minutes"):
+        with st.spinner("🔍 Running multi-agent assessment... this can take a few minutes."):
             try:
-                print(inputs)
                 result = AiLatestDevelopment().crew().kickoff(inputs=inputs)
-                # Check for report.md
                 rp_obj = _find_report_path()
+                content = ""
+                mtime = time.time()
+                
                 if rp_obj and rp_obj.exists():
-                    try:
-                        report_path = str(rp_obj.resolve())
-                        mtime = os.path.getmtime(report_path)
-                        with open(report_path, 'r', encoding='utf-8', errors='ignore') as f:
-                            content = f.read()
-                        st.session_state['last_report_content'] = content
-                        st.session_state['last_report_mtime'] = mtime
-                        st.session_state['last_report_topic'] = topic.strip()
-                        st.subheader("Output")
-                        _render_report_view(content, topic.strip(), mtime)
-                    except Exception as e:
-                        st.error(f"Could not read report.md: {e}")
-                        content = str(result)
-                        st.session_state['last_report_content'] = content
-                        st.session_state['last_report_mtime'] = time.time()
-                        st.session_state['last_report_topic'] = topic.strip()
-                        st.subheader("Output")
-                        _render_report_view(content, topic.strip())
+                    report_path = str(rp_obj.resolve())
+                    mtime = os.path.getmtime(report_path)
+                    with open(report_path, 'r', encoding='utf-8', errors='ignore') as f:
+                        content = f.read()
                 else:
                     content = str(result)
-                    st.session_state['last_report_content'] = content
-                    st.session_state['last_report_mtime'] = time.time()
-                    st.session_state['last_report_topic'] = topic.strip()
-                    st.subheader("Output")
-                    _render_report_view(content, topic.strip())
+                
+                st.session_state.update({
+                    'last_report_content': content,
+                    'last_report_mtime': mtime,
+                    'last_report_topic': topic.strip()
+                })
+                
+                with output_container:
+                    _render_report_view(content, topic.strip(), mtime)
+
             except litellm.RateLimitError as e:
-                st.subheader("Output")
-                retry_delay = float(e.args[0].split("Please retry in ")[1].split("s")[0]) if "Please retry in " in str(e) else 60
-                st.error(f"Rate limit exceeded. You have reached the free tier quota (200 requests/day) for the Gemini API. Please wait {retry_delay:.0f} seconds and try again, or check your plan and billing details at https://ai.google.dev/gemini-api/docs/rate-limits.")
-                # Display cached report if available
-                if st.session_state.get('last_report_content'):
+                with output_container:
+                    retry_delay = float(e.args[0].split("Please retry in ")[1].split("s")[0]) if "Please retry in " in str(e) else 60
+                    st.error(f"Rate limit exceeded. Please wait {retry_delay:.0f} seconds and try again.")
                     _display_cached_report()
             except Exception as e:
-                st.error(f"Run failed: {e}")
-                st.subheader("Output")
-                _display_cached_report()  # Try to show cached report on failure
+                with output_container:
+                    st.error(f"An unexpected error occurred: {e}")
+                    _display_cached_report()
 else:
-    # No submission; try to display cached report only if previously submitted and content exists
-    if st.session_state.get('last_report_content') and st.session_state['has_submitted']:
-        st.subheader("Output")
-        _display_cached_report()
-    else:
-        st.subheader("Output")
-        st.info("No output available yet. Please fill out the form and run an assessment to generate a report.")
+    with output_container:
+        if st.session_state.get('last_report_content') and st.session_state['has_submitted']:
+            _display_cached_report()
+        else:
+            st.info("👋 Welcome! Please fill out the form on the left and run an assessment to generate a report.")
 
-# Advanced utilities
-with st.expander("Advanced"):
-    col1, _ = st.columns(2)
-    with col1:
-        if st.button("Delete existing report.md"):
-            rp_obj = _find_report_path()
-            rp = str(rp_obj.resolve()) if rp_obj else str((Path.cwd() / 'report.md').resolve())
+output_container.markdown('</div>', unsafe_allow_html=True)
+
+# Advanced utilities in an expander
+with st.sidebar.expander("🛠️ Advanced Options"):
+    if st.button("Delete Cached Report", use_container_width=True):
+        rp_obj = _find_report_path()
+        if rp_obj and rp_obj.exists():
             try:
-                if os.path.exists(rp):
-                    os.remove(rp)
-                    st.success("Deleted report.md")
-                    # Clear session state and force rerun
-                    for k in ("last_report_content", "last_report_mtime", "last_report_topic", "report_text"):
-                        if k in st.session_state:
-                            del st.session_state[k]
-                    st.session_state['has_submitted'] = False
-                    st.rerun()  # Force app to rerun and update UI
-                else:
-                    st.info("No report.md found")
+                os.remove(str(rp_obj.resolve()))
+                st.success("Deleted report.md file.")
             except Exception as e:
                 st.error(f"Could not delete report.md: {e}")
+        else:
+            st.info("No report.md file found to delete.")
+        
+        # Clear session state
+        for k in list(st.session_state.keys()):
+            if k.startswith('last_report') or k == 'has_submitted':
+                del st.session_state[k]
+        
+        st.rerun()
