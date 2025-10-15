@@ -48,13 +48,17 @@ scenario_risk_classification_task:
 
 risk_report_task:
   description: >
-    Synthesize the three analyses into a concise, well-formatted professional report (approximately 1000 words)
-    with clear sections: Executive Summary; Key Findings; Risk Assessment; Recommendations; and Next Steps.
+    Synthesize the three analyses into a comprehensive, well-formatted professional report (exactly 1000 words)
+    with clear sections: Executive Summary (150 words); Key Findings (300 words) with subsections for Technical, Ethical, and Business Risks; 
+    Risk Assessment (250 words) with detailed threat analysis; Compliance and Regulatory Framework (100 words); 
+    Recommendations (150 words) with prioritized actionable items; and Next Steps (50 words).
     Use proper markdown formatting with headers, bullet points, and clear structure. Tailor the report to the selected
     region {region}, declared data use {data_use}, and the risk scenario {scenario}. Focus on actionable insights
-    and clear, concise language suitable for executive review.
+    and clear, concise language suitable for executive review. Ensure each section has substantial content and avoid
+    AI-generated meta-commentary or structural references.
   expected_output: >
-    A well-formatted markdown report with clear sections, bullet points, and professional structure. Include
-    a brief executive summary, key risk findings, prioritized recommendations, and clear next steps. Keep
-    the total length around 1000 words with concise, actionable content.
+    A comprehensive 1000-word markdown report with detailed sections, bullet points, and professional structure. Include
+    a detailed executive summary, comprehensive key risk findings with specific examples, prioritized recommendations with
+    implementation details, and clear next steps. Ensure substantial content in each section with specific details
+    rather than generic statements. Avoid AI artifacts, repetition, and meta-commentary about report structure.
   agent: risk_report_generator

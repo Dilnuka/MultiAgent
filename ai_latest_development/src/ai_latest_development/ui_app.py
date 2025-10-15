@@ -41,6 +41,7 @@ def _clean_report_content(text: str) -> str:
     lines = text.splitlines()
     cleaned_lines = []
     seen_content = set()
+    seen_normalized = set()  # For detecting similar content
     
     i = 0
     while i < len(lines):
@@ -62,9 +63,41 @@ def _clean_report_content(text: str) -> str:
             # Create a normalized version for comparison (remove extra whitespace, lowercase)
             normalized = ' '.join(line.split()).lower()
             
+            # Additional check for common AI response patterns
+            ai_patterns = [
+                "i cannot provide a final answer",
+                "cannot provide a final answer",
+                "can i help you with something else",
+                "help you with something else",
+                "you want me to write",
+                "i can provide you with the following",
+                "here is the detailed compliance brief",
+                "obligations",
+                "scope",
+                "applicability",
+                "verification artifacts",
+                "structured this report",
+                "clear sections",
+                "executive summary",
+                "key findings",
+                "risk assessment",
+                "recommendations",
+                "next steps",
+                "total length is approximately",
+                "words",
+                "please let me know if you need",
+                "further assistance"
+            ]
+            
+            # Check if this is a repeated AI response or meta-commentary
+            is_ai_response = any(pattern in normalized for pattern in ai_patterns)
+            
             # If we haven't seen this content before, add it
-            if normalized not in seen_content:
+            if normalized not in seen_content and normalized not in seen_normalized:
                 seen_content.add(normalized)
+                # For AI responses, also add a more generalized version to seen_normalized
+                if is_ai_response and len(normalized) > 20:  # Only for substantial responses
+                    seen_normalized.add(normalized[:20])  # Add first 20 chars as a pattern
                 cleaned_lines.append(lines[i])
             # If we have seen it, skip it (it's a duplicate)
         else:
@@ -84,6 +117,77 @@ def _clean_report_content(text: str) -> str:
     import re
     # Replace multiple consecutive newlines with just two
     cleaned_text = re.sub(r'\n{3,}', '\n\n', cleaned_text)
+    
+    # Special handling for repeated sections that might not be caught by line-by-line comparison
+    # Check if the text has repeated patterns at the paragraph level
+    paragraphs = cleaned_text.split('\n\n')
+    if len(paragraphs) >= 2:
+        # Compare paragraphs and remove duplicates
+        unique_paragraphs = []
+        seen_paragraphs = set()
+        
+        for para in paragraphs:
+            # Normalize paragraph for comparison
+            normalized_para = ' '.join(para.split()).strip().lower()
+            
+            # Skip empty paragraphs
+            if not normalized_para:
+                if not unique_paragraphs or unique_paragraphs[-1]:  # Only add if last wasn't empty
+                    unique_paragraphs.append(para)
+                continue
+            
+            # Check for common AI artifacts and meta-commentary
+            ai_artifacts = [
+                "you want me to write",
+                "i can provide you with the following",
+                "here is the detailed compliance brief",
+                "due to lmstudio being busy",
+                "lmstudio busy",
+                "structured this report",
+                "clear sections",
+                "executive summary",
+                "key findings",
+                "risk assessment",
+                "recommendations",
+                "next steps",
+                "total length is approximately",
+                "words",
+                "please let me know if you need",
+                "further assistance",
+                "i have structured",
+                "report into clear sections"
+            ]
+            
+            # Skip paragraphs with AI artifacts or meta-commentary
+            if any(artifact in normalized_para for artifact in ai_artifacts):
+                continue
+            
+            # Check if we've seen this paragraph before
+            if normalized_para not in seen_paragraphs:
+                seen_paragraphs.add(normalized_para)
+                unique_paragraphs.append(para)
+        
+        cleaned_text = '\n\n'.join(unique_paragraphs)
+    
+    # Additional cleaning for overly verbose AI responses
+    # Remove sections that indicate the AI is repeating itself due to being busy
+    busy_patterns = [
+        r"lmstudio.*busy",
+        r"due to.*busy",
+        r"overloaded.*response",
+        r"repeating.*content",
+        r"final answer.*following",
+        r"structured.*report.*clear.*sections",
+        r"total length.*approximately.*words",
+        r"please let me know.*need.*further assistance"
+    ]
+    
+    for pattern in busy_patterns:
+        cleaned_text = re.sub(pattern, "", cleaned_text, flags=re.IGNORECASE)
+    
+    # Remove any remaining empty sections or artifacts
+    cleaned_text = re.sub(r'\n\s*\n\s*\n', '\n\n', cleaned_text)  # Remove triple newlines
+    cleaned_text = cleaned_text.strip()  # Remove leading/trailing whitespace
     
     return cleaned_text
 
